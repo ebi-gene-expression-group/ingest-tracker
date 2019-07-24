@@ -1,1 +1,6 @@
 nfs/
+venv/
+private/
+.DS_Store
+.idea/
+__pycache__/
