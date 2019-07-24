@@ -1,6 +1,7 @@
 nfs/
 venv/
-app/etc/
+etc/
 .DS_Store
 .idea/
 __pycache__/
+.gitignore
