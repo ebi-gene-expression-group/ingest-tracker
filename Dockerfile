@@ -1,7 +1,8 @@
 FROM python:3
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
-COPY app/ /home/app/
+COPY app/lib /home/app/lib
+COPY app/workflows/run_status_crawler.py /home/app/workflows/run_status_crawler.py
 RUN mkdir /appdata
 RUN mkdir /appdata/sources_config
 RUN mkdir /appdata/client_secret
