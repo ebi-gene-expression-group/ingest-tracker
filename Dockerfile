@@ -1,4 +1,5 @@
 FROM python:3
+ENV PYTHONPATH "${PYTHONPATH}:/"
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
 COPY app/lib /app/lib

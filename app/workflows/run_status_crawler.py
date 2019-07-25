@@ -21,5 +21,6 @@ def parameters():
 
 if __name__ == '__main__':
 
+
     args = parameters()
     status_crawler.atlas_status(args.sources_config, args.google_client_secret, args.google_output)

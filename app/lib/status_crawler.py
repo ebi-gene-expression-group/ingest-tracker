@@ -15,13 +15,12 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread_dataframe
 from datetime import datetime
 import csv
-import sys
 
 # # set working dir to path of this script.
 # abspath = os.path.abspath(__file__)
 # dname = os.path.dirname(abspath)
 # os.chdir(dname)
-# os.chdir('../../') # TEST ONLY!!!
+# os.chdir('../../') # LOCAL TEST ONLY!!!
 
 class atlas_status:
     def __init__(self, sources_config, google_client_secret, google_output=True):
