@@ -13,7 +13,7 @@ __license__ = "Apache 2.0"
 __date__ = "16/07/2019"
 
 import argparse
-import ingest_tools
+from ..lib import ingest_tools
 
 def parameters():
     SUPPORTED_SOURCES = ['ae', 'geo', 'hca', 'ena', 'pride']

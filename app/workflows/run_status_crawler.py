@@ -3,7 +3,7 @@ __license__ = "Apache 2.0"
 __date__ = "24/07/2019"
 
 import argparse
-import status_crawler
+from ..lib import status_crawler
 
 def parameters():
     parser = argparse.ArgumentParser(description='Load an external dataset into Atlas.')
