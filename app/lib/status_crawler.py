@@ -15,11 +15,13 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread_dataframe
 from datetime import datetime
 import csv
+import sys
 
-# set working dir to path of this script.
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-os.chdir(dname)
+# # set working dir to path of this script.
+# abspath = os.path.abspath(__file__)
+# dname = os.path.dirname(abspath)
+# os.chdir(dname)
+# os.chdir('../../') # TEST ONLY!!!
 
 class atlas_status:
     def __init__(self, sources_config, google_client_secret, google_output=True):
@@ -57,6 +59,7 @@ class atlas_status:
     def accession_search(self):
         found_accessions = {}
         for path, info in self.sources_config.items():
+
 
             pre_accessions = os.listdir(path)
             accession_regex = re.compile('^E-(GEOD|MTAB|PROT|ENAD|AFMX|CURD|EHCA|MEXP|TABM|NASC|ERAD|GEUV|JJRD|ATMX|HCAD|MIMR|CBIL|MAXD)-[0-9]+$')
