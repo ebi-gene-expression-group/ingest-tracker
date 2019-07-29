@@ -26,9 +26,22 @@ import sys
 # os.chdir(dname)
 # os.chdir('../../') # LOCAL TEST ONLY!!!
 
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('{}  {} ms'.format(method.__name__, (te - ts) * 1000))
+        return result
+    return timed
+
 class atlas_status:
+    @timeit
     def __init__(self, sources_config, google_client_secret, google_output=True):
-        print('OFFICIAL BENCHMARKING START TIME {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
 
         # configuration
         self.google_client_secret = google_client_secret
@@ -59,9 +72,7 @@ class atlas_status:
 
         self.pickle_out()
 
-        print('OFFICIAL BENCHMARKING END TIME {}'.format(
-            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
-
+    @timeit
     def get_status_types(self):
         status_types = set()
         for x, y in self.sources_config.items():
@@ -69,6 +80,7 @@ class atlas_status:
                 status_types.add(n)
         return list(status_types)
 
+    @timeit
     def accession_search(self):
         print('Performing accession search {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -95,6 +107,7 @@ class atlas_status:
         print('Found {} accessions in {} directories'.format(len(found_accessions), len(self.sources_config)))
         return found_accessions
 
+    @timeit
     def status_tracker(self):
         print('Calculating status of each project {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         accession_status = {}
@@ -125,6 +138,7 @@ class atlas_status:
         # self.status_totals = pd.DataFrame.from_dict(self.accession_final_status, orient='index')[0].value_counts()
         return accession_final_status
 
+    @timeit
     def secondary_accession_mapper(self):
         print('Finding secondary accessions {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -152,6 +166,7 @@ class atlas_status:
                         self.secondary_accessions_mapping[accession] = secondary_accessions
                         self.all_secondary_accessions.update(secondary_accessions)
 
+    @timeit
     def get_latest_idf_sdrf(self):
         print('Getting latest IDF and SDRF paths {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -206,6 +221,7 @@ class atlas_status:
         self.idf_path_by_accession = get_latter_ranked_path(list_converter(idf_list), ranked_paths)
         self.sdrf_path_by_accession = get_latter_ranked_path(list_converter(sdrf_list), ranked_paths)
 
+    @timeit
     def idf_sdrf_metadata_scraper(self):
         print('Scraping project metadata {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -246,6 +262,7 @@ class atlas_status:
 
         return extracted_metadata
 
+    @timeit
     def get_file_modified_date(self):
         print("Getting datestamp of project's last modification {}".format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -264,6 +281,7 @@ class atlas_status:
                 mod_time[accession] = datetime.fromtimestamp(sdrf_mode_time).isoformat()
         return mod_time
 
+    @timeit
     def df_compiler(self):
         print('Combining results into summary dataframe {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -291,6 +309,7 @@ class atlas_status:
 
         return filtered_df
 
+    @timeit
     def google_sheet_output(self, output_df):
         print('Outputting to google sheet {} {}'.format(str(output_df.shape),
                                                         datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -309,6 +328,7 @@ class atlas_status:
         # remove old worksheet in pos 0
         sheet.del_worksheet(sheet.get_worksheet(0))
 
+    @timeit
     def pickle_out(self):
         if not os.path.exists('logs'):
             os.makedirs('logs')
