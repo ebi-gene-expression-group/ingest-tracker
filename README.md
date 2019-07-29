@@ -16,7 +16,7 @@ An overview is written to `https://docs.google.com/spreadsheets/d/13gxKodyl-zJTe
 | State  | Description  |
 |---|---|
 | **external** | Datasets are in external resources and we don't know about them in Atlas but we may have metadata on them via various data discovery mechanisms.  |
-| **incoming** | A dataset has passed eligibility criteria and **should** be imported (not what could be imported). |
+| **incoming??** | A dataset **should** be imported (not what could be imported). |
 |**loading**|A dataset is actively undergoing curation, review and ingest|
 |**analysing**|A dataset has completed curation and passed validation. It is now undergoing analysis.|
 |**processed**|Analysis is complete.|

@@ -4,3 +4,4 @@ app/etc/
 .DS_Store
 .idea/
 __pycache__/
+/app/workflows/logs/

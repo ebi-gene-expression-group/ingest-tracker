@@ -15,6 +15,10 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread_dataframe
 from datetime import datetime
 import csv
+from tqdm import tqdm
+import pickle
+
+import sys
 
 # # set working dir to path of this script.
 # abspath = os.path.abspath(__file__)
@@ -30,7 +34,11 @@ class atlas_status:
         with open(sources_config) as f:
             self.sources_config = json.load(f)
         self.status_types = self.get_status_types()
+        self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published']
+        assert set(self.status_types) == set(
+            self.status_type_order), 'Unrecognised status in config. Please update status type order list.'
         self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
+        print('Initialised {}'.format(self.timestamp))
 
         # accession search
         self.found_accessions = self.accession_search() # scans dir in config to find '*.idf.txt' or accession directories
@@ -48,6 +56,8 @@ class atlas_status:
             output_df = self.df_compiler() # this function should be edited to change the information exported to the google sheets output
             self.google_sheet_output(output_df) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
 
+        self.pickle_out()
+
     def get_status_types(self):
         status_types = set()
         for x, y in self.sources_config.items():
@@ -56,26 +66,33 @@ class atlas_status:
         return list(status_types)
 
     def accession_search(self):
+        print('Performing accession search {}'.format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         found_accessions = {}
+        counter = 0
         for path, info in self.sources_config.items():
-
+            counter += 1
+            print('Searching path {} {}/{}'.format(path, counter, len(self.sources_config)))
 
             pre_accessions = os.listdir(path)
-            accession_regex = re.compile('^E-(GEOD|MTAB|PROT|ENAD|AFMX|CURD|EHCA|MEXP|TABM|NASC|ERAD|GEUV|JJRD|ATMX|HCAD|MIMR|CBIL|MAXD)-[0-9]+$')
+            self.accession_regex = re.compile('^E-(GEOD|MTAB|PROT|ENAD|AFMX|CURD|EHCA|MEXP|TABM|NASC|ERAD|GEUV|JJRD|ATMX|HCAD|MIMR|CBIL|MAXD)-[0-9]+$')
             for pre_accession in pre_accessions:
-                accession = pre_accession.strip('.idf.txt')
-                if accession_regex.match(accession):
-                    found_accessions[(path, accession)] = dict(
-                                                                    # config_path=path,
-                                                                    accession=accession,
-                                                                    tech=info.get('tech', None),
-                                                                    stage=info.get('stage', None),
-                                                                    resource=info.get('resource', None),
-                                                                    source=info.get('source', None)
-                    )
+                if not pre_accession.endswith('.merged.idf.txt'):
+                    accession = pre_accession.strip('.idf.txt')
+                    if self.accession_regex.match(accession):
+                        found_accessions[(path, accession)] = dict(
+                                                                        # config_path=path,
+                                                                        accession=accession,
+                                                                        tech=info.get('tech', None),
+                                                                        stage=info.get('stage', None),
+                                                                        resource=info.get('resource', None),
+                                                                        source=info.get('source', None)
+                        )
+        print('Found {} accessions in {} directories'.format(len(found_accessions), len(self.sources_config)))
         return found_accessions
 
     def status_tracker(self):
+        print('Calculating status of each project {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         accession_status = {}
         for key, value in self.found_accessions.items():
             accession = value['accession']
@@ -95,10 +112,9 @@ class atlas_status:
             # todo determine and support bespoke logic to determine true state of dual paths
 
         accession_final_status = {}
-        status_type_order = ['external','incoming','loading','analysing','processed','published']
-        assert set(self.status_types) == set(status_type_order), 'Unrecognised status in config. Please update status type order list.'
+
         for accession, status_bool in accession_status.items():
-            for status_type in reversed(status_type_order):
+            for status_type in reversed(self.status_type_order):
                 if status_bool.get(status_type):
                     accession_final_status[accession] = status_type
                     break
@@ -106,17 +122,23 @@ class atlas_status:
         return accession_final_status
 
     def secondary_accession_mapper(self):
+        print('Finding secondary accessions {}'.format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         idf_files = []
-        for path, values in self.sources_config.items():
+        for path, values in tqdm(self.sources_config.items()):
+            print('Secondary accession search in {}'.format(path))
             f = [f for f in glob.glob(path + "**/*.idf.txt", recursive=True)]
             idf_files += f
 
         self.all_secondary_accessions = set()
         self.secondary_accessions_mapping = {}
-        for idf_file in idf_files:
+        for idf_file in tqdm(idf_files):
             accession = idf_file.split('/')[-1].strip('.idf.txt')
             with open (idf_file, "r") as f:
-                contents = f.read()
+                try:
+                    contents = f.read()
+                except UnicodeDecodeError:
+                    print('Cannot open {}'.format(idf_file))
                 search = re.findall(r'Comment \[SecondaryAccession\](.*?)\n', contents)
                 if search:
                     secondary_accessions = [x.strip('\t') for x in search]
@@ -127,93 +149,62 @@ class atlas_status:
                         self.all_secondary_accessions.update(secondary_accessions)
 
     def get_latest_idf_sdrf(self):
-        global idf_path, sdrf_path
-        files_found = {}
-        for path, metadata in self.sources_config.items():
-            idf_list = glob.glob(path + '/*/*.idf.txt') + glob.glob(path + '/*.idf.txt')
-            sdrf_list = glob.glob(path + '/*/*.sdrf.txt') + glob.glob(path + '/*.sdrf.txt')
-            files_found[path] = dict(idf_list=idf_list,sdrf_list=sdrf_list)
+        print('Getting latest IDF and SDRF paths {}'.format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
 
-        self.latest_idf = {}
-        self.latest_sdrf = {}
-        for accession, status in self.accession_final_status.items():
-            look_in = []
+        def list_converter(file_list):
+            files_found = {}
+            for filepath in file_list:
+                accession = filepath.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', '')
+                if accession in files_found:
+                    files_found[accession].append(filepath)
+                else:
+                    files_found[accession] = [filepath]
+            return files_found
+
+        def get_ranked_paths():
+            # ranks path by status type, used to estimate out where latest metadata is.
+            preordered_paths = []
+            latest_stage_ranks = []
             for path, metadata in self.sources_config.items():
-                if status in metadata['stage']:
-                    look_in.append(path)
+                preordered_paths.append(path)
+                latest_stage_ranks.append(max([self.status_type_order.index(n) for n in metadata.get('stage')]))
+            return [x for _,x in sorted(zip(latest_stage_ranks,preordered_paths))]
 
-            idf_accession_pattern1 = path + '/' + accession + '/' + accession + '.idf.txt'
-            idf_accession_pattern2 = path + '/' + accession + '.idf.txt'
-            sdrf_accession_pattern1 = path + '/' + accession + '/' + accession + '.sdrf.txt'
-            sdrf_accession_pattern2 = path + '/' + accession + '.sdrf.txt'
-
-            for look_path in look_in:
-                idf_paths = files_found.get(look_path).get('idf_list')
-                sdrf_paths = files_found.get(look_path).get('sdrf_list')
-
-                if idf_accession_pattern1 in idf_paths:
-                    idf_path = idf_accession_pattern1
-                elif idf_accession_pattern2 in idf_paths:
-                    idf_path = idf_accession_pattern2
+        def get_latter_ranked_path(paths_by_accession, ranked_paths):
+            ranked_paths_by_accession = {}
+            for accession, path_list in paths_by_accession.items():
+                if len(path_list) == 1:
+                    latest_path = path_list[0]
                 else:
-                    idf_path = None
-                if sdrf_accession_pattern1 in sdrf_paths:
-                    sdrf_path = sdrf_accession_pattern1
-                elif sdrf_accession_pattern2 in sdrf_paths:
-                    sdrf_path = sdrf_accession_pattern2
-                else:
-                    sdrf_path = None
+                    try:
+                        trunc_paths = [v.split('/E-')[0] for v in path_list]  # remove accession specific endings
+                        path_ranks = [ranked_paths.index(n) for n in trunc_paths]
+                        latest_path = path_list[path_ranks.index(max(path_ranks))]  # get idf/sdrf from latter loc
+                    except ValueError:
+                        continue #todo this needs more investigation in prod got ValueError: '/nfs/production3/ma/home/atlas3-production/singlecell/experiment/ng' is not in list
+                ranked_paths_by_accession[accession] = latest_path
+            return ranked_paths_by_accession
 
-                if sdrf_path and idf_path:
-                    self.latest_idf[accession] = idf_path
-                    self.latest_sdrf[accession] = sdrf_path
-                    break
-                else:
-                    continue
-            self.latest_idf[accession] = idf_path
-            self.latest_sdrf[accession] = sdrf_path
 
-    def google_sheet_output(self, output_df):
-        scope = ['https://spreadsheets.google.com/feeds',
-                 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name(self.google_client_secret, scope)
-        client = gspread.authorize(creds)
-        sheet = client.open("Ingest Status") # this is the spreadsheet not the worksheet
 
-        # add new empty worksheet
-        sheet.add_worksheet(title="In progress {}".format(self.timestamp), rows=output_df.shape[0]+1, cols=output_df.shape[1]+1)
-        # fill new empty worksheet
-        gspread_dataframe.set_with_dataframe(sheet.get_worksheet(1), output_df, include_index=True, include_column_header=True)
-        # remove old worksheet in pos 0
-        sheet.del_worksheet(sheet.get_worksheet(0))
+        idf_list_ = []
+        sdrf_list_ = []
+        for path, metadata in tqdm(self.sources_config.items()):
+            print('IDF/SDRF path finder exploring {}'.format(path))
+            idf_list_ += glob.glob(path + '/*/*.idf.txt') + glob.glob(path + '/*.idf.txt')
+            sdrf_list_ += glob.glob(path + '/*/*.sdrf.txt') + glob.glob(path + '/*.sdrf.txt')
 
-    def df_compiler(self):
+        idf_list = [x for x in idf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', ''))]
+        sdrf_list = [x for x in sdrf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', ''))]
 
-        # combine accession keyed dictionaries
-        # NB extracted metadata is an extra dict of dicts with various values from metadata scraping
-        input_dicts = {"Status":self.accession_final_status,
-                    "Secondary Accessions": self.secondary_accessions_mapping,
-                    "IDF": self.latest_idf,
-                    "SDRF": self.latest_sdrf,
-                    "Last Modified": self.mod_time
-                   }
-        input_dicts.update(self.extracted_metadata)
-        input_data = {}
-        for colname, input_dict in input_dicts.items():
-            for accession, value in input_dict.items():
-                if accession not in input_data:
-                    input_data[accession] = {colname:value}
-                else:
-                    input_data[accession].update({colname:value})
-
-        # df parsing
-        full_df = pd.DataFrame.from_dict(input_data, orient = 'index')
-        filtered_df = full_df[(full_df["Status"] == "external") | (full_df["Status"] != "published")] # filter our published and external results
-
-        return filtered_df
+        ranked_paths = get_ranked_paths()
+        self.idf_path_by_accession = get_latter_ranked_path(list_converter(idf_list), ranked_paths)
+        self.sdrf_path_by_accession = get_latter_ranked_path(list_converter(sdrf_list), ranked_paths)
 
     def idf_sdrf_metadata_scraper(self):
-
+        print('Scraping project metadata {}'.format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         extracted_metadata = {}
 
         # edit this list to extract different metadata.
@@ -221,40 +212,108 @@ class atlas_status:
         idf_get = {'Experiment Type': ['Comment[EAExperimentType', 'Comment [EAExperimentType'],
                    'Curator': ['Comment[EACurator]', 'Comment [EACurator]'],
                    'Analysis Type': ['Comment[AEExperimentType]', 'Comment [AEExperimentType]']}
-        sdrf_get = {'Single-cell Analysis Type' : ['Comment[library construction]', 'Comment [library construction]'],
-                    'Organism' : ['Characteristics[organism]', 'Characteristics [organism]']}
+        sdrf_get = {'Single-cell Experiment Type' : ['Comment[library construction]', 'Comment [library construction]'],
+                    'Organism' : ['Characteristics[organism]', 'Characteristics [organism]', 'Characteristics [Organism]']}
         assert not set(idf_get.keys()).intersection(set(sdrf_get.keys())), 'Keys should be unique in metadata config lists above'
 
 
-        metadata_get = [{'paths': self.latest_sdrf, 'get_params' : sdrf_get},
-                        {'paths': self.latest_idf, 'get_params': idf_get}]
+        metadata_get = [{'paths': self.sdrf_path_by_accession, 'get_params' : sdrf_get},
+                        {'paths': self.idf_path_by_accession, 'get_params': idf_get}]
 
         for metadata_file_type in metadata_get:
             for accession, metadata_file in metadata_file_type.get('paths').items():
                 if metadata_file:
-                    with open(metadata_file, newline='') as s:
-                        reader = csv.DictReader(s, delimiter='\t')
-                        for row in reader:
-                            for output_colname, input_colname_list in metadata_file_type.get('get_params').items():
-                                for input_colname in input_colname_list:
-                                    output_value = row.get(input_colname)
-                                    if output_value:
-                                        break
-                                if output_colname not in extracted_metadata:
-                                    extracted_metadata[output_colname] = {accession: output_value}
-                                else:
-                                    extracted_metadata[output_colname].update({accession : output_value})
+                    try:
+                        with open(metadata_file, newline='') as s:
+                            reader = csv.DictReader(s, delimiter='\t')
+                            for row in reader:
+                                for output_colname, input_colname_list in metadata_file_type.get('get_params').items():
+                                    for input_colname in input_colname_list:
+                                        output_value = row.get(input_colname)
+                                        if output_value:
+                                            break
+                                    if output_colname not in extracted_metadata:
+                                        extracted_metadata[output_colname] = {accession: output_value}
+                                    else:
+                                        extracted_metadata[output_colname].update({accession : output_value})
+                    except UnicodeDecodeError:
+                        print('Failed to open {} due to UnicodeDecodeError'.format(metadata_file))
+                        # todo fix unit decode error affecting some files. They tend to be charset=unknown-8bit
+
         return extracted_metadata
 
     def get_file_modified_date(self):
+        print("Getting datestamp of project's last modification {}".format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         mod_time = {}
-        for accession, idf_path in self.latest_idf.items():
-            if idf_path:
-                sdrf_path = self.latest_sdrf.get(accession)
-                sdrf_mode_time = os.path.getmtime(sdrf_path)
+        for accession, idf_path in self.idf_path_by_accession.items():
+            sdrf_path = self.sdrf_path_by_accession.get(accession)
+            if idf_path and sdrf_path:
                 idf_mode_time = os.path.getmtime(idf_path)
+                sdrf_mode_time = os.path.getmtime(sdrf_path)
                 mod_time[accession] = datetime.fromtimestamp(max(idf_mode_time, sdrf_mode_time)).isoformat()
+            elif idf_path:
+                idf_mode_time = os.path.getmtime(idf_path)
+                mod_time[accession] = datetime.fromtimestamp(idf_mode_time).isoformat()
+            elif sdrf_path:
+                sdrf_mode_time = os.path.getmtime(sdrf_path)
+                mod_time[accession] = datetime.fromtimestamp(sdrf_mode_time).isoformat()
         return mod_time
+
+    def df_compiler(self):
+        print('Combining results into summary dataframe {}'.format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
+        # combine accession keyed dictionaries
+        # NB extracted metadata is an extra dict of dicts with various values from metadata scraping
+        input_dicts = {"Status": self.accession_final_status,
+                       "Secondary Accessions": self.secondary_accessions_mapping,
+                       "IDF": self.idf_path_by_accession,
+                       "SDRF": self.sdrf_path_by_accession,
+                       "Last Modified": self.mod_time
+                       }
+        input_dicts.update(self.extracted_metadata)
+        input_data = {}
+        for colname, input_dict in input_dicts.items():
+            for accession, value in input_dict.items():
+                if accession not in input_data:
+                    input_data[accession] = {colname: value}
+                else:
+                    input_data[accession].update({colname: value})
+
+        # df parsing
+        full_df = pd.DataFrame.from_dict(input_data, orient='index')
+        filtered_df = full_df[(full_df["Status"] == "external") | (
+                    full_df["Status"] != "published")]  # filter our published and external results
+
+        return filtered_df
+
+    def google_sheet_output(self, output_df):
+        print('Outputting to google sheet {} {}'.format(str(output_df.shape),
+                                                        datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
+        scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_name(self.google_client_secret, scope)
+        client = gspread.authorize(creds)
+        sheet = client.open("Ingest Status")  # this is the spreadsheet not the worksheet
+
+        # add new empty worksheet
+        sheet.add_worksheet(title="In progress {}".format(self.timestamp), rows=output_df.shape[0] + 1,
+                            cols=output_df.shape[1] + 1)
+        # fill new empty worksheet
+        gspread_dataframe.set_with_dataframe(sheet.get_worksheet(1), output_df, include_index=True,
+                                             include_column_header=True)
+        # remove old worksheet in pos 0
+        sheet.del_worksheet(sheet.get_worksheet(0))
+
+    def pickle_out(self):
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
+        filename = 'logs/' + str(self.timestamp) + '.atlas_status.log'
+        filehandler = open(filename, 'wb')
+        pickle.dump(self, filehandler)
+
+
+
 
 
 
@@ -274,3 +333,10 @@ class atlas_status:
 #         port=creds.port
 #     )
 #     print(substracking)
+
+
+# todo SPEED Slowest step confirmed to be IDF/SDRF path finder exploring /nfs/production3/ma/home/arrayexpress/ae2_production/data/EXPERIMENT/MTAB
+# todo SPEED try replacing glob.glob with os.walk. The very broad */*.idf.txt searches are too open ended and take ages.
+# todo SPEED improvements merge secondary accession and other metadata get operations so files are only opened once
+# todo SPEED write out object so it can only scrape files that have not been modified
+# todo SPEED accessioner only needs accessions, if still too slow I can separate this function
