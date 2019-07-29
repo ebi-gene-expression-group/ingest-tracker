@@ -28,6 +28,7 @@ import sys
 
 class atlas_status:
     def __init__(self, sources_config, google_client_secret, google_output=True):
+        print('OFFICIAL BENCHMARKING START TIME {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
 
         # configuration
         self.google_client_secret = google_client_secret
@@ -57,6 +58,9 @@ class atlas_status:
             self.google_sheet_output(output_df) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
 
         self.pickle_out()
+
+        print('OFFICIAL BENCHMARKING END TIME {}'.format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
 
     def get_status_types(self):
         status_types = set()
