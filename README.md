@@ -66,4 +66,9 @@ Lots of params needed by the curator including:
  
  
 
+Quick notes to be added:
+
+Lots of file fail to open die to decode errors. These can mostly be ignored because they occur in files that are not in atlas.
+DB connections were neccesary to get atlas eligibility results as these results are not written to a log anywhere. 
+
  

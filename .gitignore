@@ -5,3 +5,4 @@ app/etc/
 .idea/
 __pycache__/
 /app/workflows/logs/
+/app/workflows/test_accessioner.py

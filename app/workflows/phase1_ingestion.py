@@ -13,36 +13,48 @@ __license__ = "Apache 2.0"
 __date__ = "16/07/2019"
 
 import argparse
-from ..lib import ingest_tools
+from app.lib import ingest_tools
 
 def parameters():
     SUPPORTED_SOURCES = ['ae', 'geo', 'hca', 'ena', 'pride']
     parser = argparse.ArgumentParser(description='Load an external dataset into Atlas.')
     parser.add_argument("-a", "--external_accession", dest="external_accession",
                         help="The external accession of the experiment. Could be from GEO/HCA/ENA/PRIDE etc",
-                        required=True, nargs=1)  # todo add nargs='+' when lists of accessions can be added
-    parser.add_argument("-s", "--external_source", dest="external_source",
+                        required=True, nargs=1)  # todo add nargs='+' when lists of accessions can be added. Dup check func can handle lists already
+    parser.add_argument("-x", "--external_source", dest="external_source",
                         help="Should be one of the supported sources ({})".format(str(SUPPORTED_SOURCES).strip("[]")),
                         required=True, choices=SUPPORTED_SOURCES)
     parser.add_argument("-i", "--ignore_duplication", dest="ignore_duplication",
                         help="Pass flag to ignore duplication errors.",
                         required=False, action='store_true')
+    parser.add_argument("-s", "--sources_config", dest="sources_config",
+                        help="Configuration file with paths. Private doc available locally.",
+                        required=True)
     return parser.parse_args()
 
 
 if __name__ == '__main__':
 
     args = parameters()
-    print('ingesting')
 
+    # DUPLICATION CHECKS
     if not args.ignore_duplication:
-        ingest_tools.duplication_check(args)
+        ingest_tools.external_duplication_check(args.external_accession)
+        ingest_tools.internal_duplication_check(args.external_accession)
     else:
         print('Skipping duplication checks')
 
-    temp_mage_tab = ingest_tools.get_temp_mage_tab(args)
+    # GET MAGE TAB
+    if args.external_source == 'ae':
+        metadata_files = ingest_tools.get_ae_metadata_files(args.external_accession, args.sources_config)
+    else:
+        metadata_files = None
+        print('This source type is in development') #todo add support for more source types
 
-    ingest_tools.general_MAGETAB_validation(temp_mage_tab) #only works as fg_atlas
+    print(metadata_files)
+
+
+    # todo add general MAGETAB validation here!
 
 
 

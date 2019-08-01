@@ -10,6 +10,9 @@ def parameters():
     parser.add_argument("-s", "--sources_config", dest="sources_config",
                         help="Configuration file with paths. Private doc available locally.",
                         required=True)
+    parser.add_argument("-d", "--db_config", dest="db_config",
+                        help="Configuration file with db connection settings. Private doc available locally.",
+                        required=True)
     parser.add_argument("-g", "--google_client_secret", dest="google_client_secret",
                         help="Connection info for output Google Sheet. Private doc available locally.",
                         required=True)
@@ -21,6 +24,5 @@ def parameters():
 
 if __name__ == '__main__':
 
-
     args = parameters()
-    status_crawler.atlas_status(args.sources_config, args.google_client_secret, args.google_output)
+    status_crawler.atlas_status(args.sources_config, args.db_config, args.google_client_secret, args.google_output, crawl=True)
