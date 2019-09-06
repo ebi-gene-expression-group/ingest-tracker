@@ -6,3 +6,4 @@ app/etc/
 __pycache__/
 /app/workflows/logs/
 /app/workflows/test_accessioner.py
+app/etc/local_test_sources_config.json
