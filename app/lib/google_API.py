@@ -120,7 +120,7 @@ def google_sheet_output(self, output_df):
              'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name(self.google_client_secret, scope)
     client = gspread.authorize(creds)
-    sheet = client.open("Ingest Status")  # this is the spreadsheet not the worksheet
+    sheet = client.open("DEV Ingest Status")  # this is the spreadsheet not the worksheet
 
     # add new empty worksheet
     sheet.add_worksheet(title="In progress {}".format(self.timestamp), rows=output_df.shape[0] + 1,

@@ -118,32 +118,46 @@ class atlas_status:
     def status_tracker(self):
         self.verboseprint('Calculating status of each project {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         accession_status = {}
+        accession_status_counter = {}
         for key, value in self.found_accessions.items():
             accession = value['accession']
             stage = value['stage']
 
-            if accession not in accession_status:
-                status_bool = {}
+        # # for dirs with multiple statuses select lowest status
+        #     if accession not in accession_status:
+        #         status_bool = {}
+        #
+        #     # accurate bool table but final status determination is not conservative
+        #         for status in self.status_types:
+        #             status_bool[status] = (status in stage)
+        #         accession_status[accession] = status_bool
+        #     else:
+        #         for status in stage:
+        #             accession_status[accession][status] = True
+        #
+        #     # todo determine and support bespoke logic to determine true state of dual paths
+        #
+        # accession_final_status = {}
+        #
+        # for accession, status_bool in accession_status.items():
+        #     for status_type in reversed(self.status_type_order):
+        #         if status_bool.get(status_type):
+        #             accession_final_status[accession] = status_type
+        #             break
+        # # self.status_totals = pd.DataFrame.from_dict(self.accession_final_status, orient='index')[0].value_counts()
 
-            # accurate bool table but final status determination is not conservative
-                for status in self.status_types:
-                    status_bool[status] = (status in stage)
-                accession_status[accession] = status_bool
-            else:
-                for status in stage:
-                    accession_status[accession][status] = True
 
-            # todo determine and support bespoke logic to determine true state of dual paths
+        # OR return status as specific as possible (based on loosely defined dir loc)
 
-        accession_final_status = {}
+            index = self.status_type_order.index(stage[-1])
+            if accession not in accession_status_counter:
+                accession_status_counter[accession] = index
+                accession_status[accession] = ' '.join(stage)
+            elif index > accession_status_counter.get(accession):
+                accession_status_counter[accession] = index
+                accession_status[accession] = ' '.join(stage)
 
-        for accession, status_bool in accession_status.items():
-            for status_type in reversed(self.status_type_order):
-                if status_bool.get(status_type):
-                    accession_final_status[accession] = status_type
-                    break
-        # self.status_totals = pd.DataFrame.from_dict(self.accession_final_status, orient='index')[0].value_counts()
-        return accession_final_status
+        return accession_status
 
     @timeit
     def secondary_accession_mapper(self):
