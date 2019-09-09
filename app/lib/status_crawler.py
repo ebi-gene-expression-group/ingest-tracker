@@ -39,11 +39,12 @@ class atlas_status:
         return timed
 
     @timeit
-    def __init__(self, sources_config, db_config, google_client_secret=None, google_output=True, crawl=True, verbose=True):
+    def __init__(self, sources_config, db_config, google_client_secret=None, google_output=True, sheetname="DEV Ingest Status", crawl=True, verbose=True):
 
         # configuration
         self.verboseprint = print if verbose else lambda *a, **k: None
         self.google_client_secret = google_client_secret
+        self.sheetname = sheetname
         with open(sources_config) as f:
             self.sources_config = json.load(f)
         with open(db_config) as d:
@@ -73,7 +74,7 @@ class atlas_status:
             # output
             if google_output:
                 output_df = self.df_compiler() # this function should be edited to change the information exported to the google sheets output
-                google_sheet_output(self, output_df) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+                google_sheet_output(self, output_df, self.sheetname) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
 
             self.pickle_out()
 

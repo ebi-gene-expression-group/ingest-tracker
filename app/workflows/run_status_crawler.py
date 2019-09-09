@@ -19,10 +19,13 @@ def parameters():
     parser.add_argument("-o", "--google_output", dest="google_output",
                         help="Connection info for output Google Sheet. Private doc available locally.",
                         required=False, default=True)
+    parser.add_argument("-n", "--sheetname", dest="sheetname",
+                        help="Name of output sheet.",
+                        required=False, default='DEV Ingest Status')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
 
     args = parameters()
-    status_crawler.atlas_status(args.sources_config, args.db_config, args.google_client_secret, args.google_output, crawl=True)
+    status_crawler.atlas_status(args.sources_config, args.db_config, args.google_client_secret, args.google_output, args.sheetname, crawl=True)

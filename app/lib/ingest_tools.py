@@ -10,7 +10,6 @@ import re
 import os
 from datetime import datetime
 import pickle
-from pathlib import Path
 
 def atlas_status_from_last_save():
     log_path = '../workflows/logs/'
