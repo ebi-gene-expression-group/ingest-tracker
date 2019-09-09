@@ -1,7 +1,0 @@
-nfs/
-venv/
-etc/
-.DS_Store
-.idea/
-__pycache__/
-.gitignore
