@@ -14,7 +14,12 @@ This repo's scope is an ingestion framework to gather and prepare Atlas datasets
 The class `status_crawler.py` can be ran with `workflows/run_status_crawler.py` passing arguments for config files required. These are private and only available locally.
 The status tracker crawls the filesystem directed by `sources_config.json` to determine the state of each dataset.
 The state and other metadata is collected on each dataset and made available in the class `status_crawler` namespace.
-An overview is written to `https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=1140221211` which is updated on every run.
+An overview is written to `https://docs.google.com/spreadsheets/d/1rIf3t2wcfYdE8rgxDhYOwr-NIGTIzWpAfrlFeuiD9qE/edit#gid=2054734368` which is updated on every run.
+
+
+#### Deployment
+A git push triggers Jenkins run. Runs are also schedules 3 per day to update the sheet. A dev sheet is used for local development at `https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=1140221211`
+
 
 #### State definitions 
 
