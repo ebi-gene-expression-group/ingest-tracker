@@ -17,6 +17,7 @@ An overview is written to `https://docs.google.com/spreadsheets/d/1rIf3t2wcfYdE8
 #### Deployment
 A git push triggers Jenkins run. Runs are also schedules 3 per day to update the sheet. A dev sheet is used for local development at `https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=1140221211`
 
+Before starting you require various configuration files in `app/etc`. These allow db connections, navigation of paths on nfs and permissions for google sheet writing. 
 
 #### State definitions 
 
