@@ -1,3 +1,15 @@
+'''
+Use following params for DEV run
+-n
+"DEV Ingest Status"
+-s
+/app/etc/local_test_sources_config.json
+-d
+/app/etc/db_config.json
+-g
+/app/etc/client_secret.json
+'''
+
 __author__ = "hewgreen"
 __license__ = "Apache 2.0"
 __date__ = "24/07/2019"
