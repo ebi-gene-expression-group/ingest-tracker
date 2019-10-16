@@ -74,14 +74,29 @@ def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
       }
     })
     requests.append({
+        "updateDimensionProperties": {
+            "range": {
+                "sheetId": sheetId,
+                "dimension": "COLUMNS",
+                "startIndex": 2,
+                "endIndex": 4
+            },
+            "properties": {
+                "pixelSize": 160
+            },
+            "fields": "pixelSize"
+        }
+    })
+    requests.append({
       "autoResizeDimensions": {
         "dimensions": {
           "sheetId": sheetId,
           "dimension": "COLUMNS",
-          "startIndex": 4
+          "startIndex": 5
         }
       }
     })
+
 
     # wrapStrategy clip
 

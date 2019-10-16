@@ -22,6 +22,7 @@ import mysql.connector
 import psycopg2
 from app.lib.google_API import google_sheet_output
 import sys
+from collections import defaultdict
 
 class atlas_status:
 
@@ -251,6 +252,13 @@ class atlas_status:
         self.idf_path_by_accession = get_latter_ranked_path(list_converter(idf_list), ranked_paths)
         self.sdrf_path_by_accession = get_latter_ranked_path(list_converter(sdrf_list), ranked_paths)
 
+        # get the path where the accession was initially found at
+        paths_by_accession = defaultdict(list)
+        for k, v in self.found_accessions.items():
+            paths_by_accession[v.get('accession')].append(k[0])
+        self.path_by_accession = get_latter_ranked_path(paths_by_accession, ranked_paths)
+
+
     @timeit
     def idf_sdrf_metadata_scraper(self):
         self.verboseprint('Scraping project metadata {}'.format(
@@ -270,6 +278,8 @@ class atlas_status:
         metadata_get = [{'paths': self.sdrf_path_by_accession, 'get_params' : sdrf_get},
                         {'paths': self.idf_path_by_accession, 'get_params': idf_get}]
 
+        self.unicode_error_accessions = []
+        self.unicode_error_paths = []
         for metadata_file_type in metadata_get:
             for accession, metadata_file in metadata_file_type.get('paths').items():
                 if metadata_file:
@@ -287,6 +297,8 @@ class atlas_status:
                                     elif output_value != None:
                                         extracted_metadata[output_colname].update({accession : output_value})
                     except UnicodeDecodeError:
+                        self.unicode_error_accessions.append(accession)
+                        self.unicode_error_paths.append(metadata_file)
                         self.verboseprint('Failed to open {} due to UnicodeDecodeError'.format(metadata_file))
                         # todo fix unit decode error affecting some files. They tend to be charset=unknown-8bit
                         continue
@@ -320,6 +332,7 @@ class atlas_status:
         # combine accession keyed dictionaries
         # NB extracted metadata is an extra dict of dicts with various values from metadata scraping
         input_dicts = {"Status": self.accession_final_status,
+                       "Discovery Location": self.path_by_accession,
                        "Secondary Accessions": self.secondary_accessions_mapping,
                        "IDF": self.idf_path_by_accession,
                        "SDRF": self.sdrf_path_by_accession,
@@ -347,10 +360,22 @@ class atlas_status:
     def pickle_out(self):
         if not os.path.exists('logs'):
             os.makedirs('logs')
+
+        # binary log of results
         filename = 'logs/' + str(self.timestamp) + '.atlas_status.log'
         filehandler = open(filename, 'wb')
         pickle.dump(self, filehandler)
         print('Crawler results dumped to pickle')
+
+        # human readable log
+        filename = 'logs/last_run_text.log'
+        data = {
+            "Primary accessions found": list(self.all_primary_accessions),
+            "Failed to open accessions due to unicode error": list(self.unicode_error_accessions),
+            "Failed to open file paths due to unicode error": list(self.unicode_error_paths)
+        }
+        with open(filename, 'w') as filehandler:
+            json.dump(data, filehandler)
 
     def lookup_curator_file(self):
         curator_signature = {}
