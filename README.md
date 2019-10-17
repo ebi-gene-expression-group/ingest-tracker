@@ -1,4 +1,4 @@
-# atlas-ingest
+# ingest-tracker
 
 This repo contains an internal Atlas dataset tracker. The tracker writes out to google sheets. There are additional functions that are useful for curators e.g. duplication checkers, log of previous status and retrieval of metadata files.
 
