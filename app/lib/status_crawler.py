@@ -23,6 +23,7 @@ import psycopg2
 from app.lib.google_API import google_sheet_output
 import sys
 from collections import defaultdict
+from collections import OrderedDict
 
 class atlas_status:
 
@@ -40,12 +41,12 @@ class atlas_status:
         return timed
 
     @timeit
-    def __init__(self, sources_config, db_config, google_client_secret=None, google_output=True, sheetname="DEV Ingest Status", crawl=True, verbose=True):
+    def __init__(self, sources_config, db_config, google_client_secret=None, google_output=True, spreadsheetname="DEV Ingest Status", crawl=True, verbose=True):
 
         # configuration
         self.verboseprint = print if verbose else lambda *a, **k: None
         self.google_client_secret = google_client_secret
-        self.sheetname = sheetname
+        self.spreadsheetname = spreadsheetname
         with open(sources_config) as f:
             self.sources_config = json.load(f)
         with open(db_config) as d:
@@ -62,6 +63,7 @@ class atlas_status:
         # accession search
         self.found_accessions = self.accession_search() # scans dir in config to find '*.idf.txt' or accession directories
         self.accession_final_status = self.status_tracker() # determines status of each dataset based on location of files
+        self.get_min_max_status() # sets two variables with min and max status based on status_type_order
 
         if crawl:
             # metadata crawling
@@ -74,8 +76,8 @@ class atlas_status:
 
             # output
             if google_output:
-                output_df = self.df_compiler() # this function should be edited to change the information exported to the google sheets output
-                google_sheet_output(self, output_df, self.sheetname) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+                output_dfs = self.df_compiler() # this function should be edited to change the information exported to the google sheets output
+                google_sheet_output(self, output_dfs, self.spreadsheetname) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
 
             self.pickle_out()
 
@@ -125,32 +127,6 @@ class atlas_status:
             accession = value['accession']
             stage = value['stage']
 
-        # # for dirs with multiple statuses select lowest status
-        #     if accession not in accession_status:
-        #         status_bool = {}
-        #
-        #     # accurate bool table but final status determination is not conservative
-        #         for status in self.status_types:
-        #             status_bool[status] = (status in stage)
-        #         accession_status[accession] = status_bool
-        #     else:
-        #         for status in stage:
-        #             accession_status[accession][status] = True
-        #
-        #     # todo determine and support bespoke logic to determine true state of dual paths
-        #
-        # accession_final_status = {}
-        #
-        # for accession, status_bool in accession_status.items():
-        #     for status_type in reversed(self.status_type_order):
-        #         if status_bool.get(status_type):
-        #             accession_final_status[accession] = status_type
-        #             break
-        # # self.status_totals = pd.DataFrame.from_dict(self.accession_final_status, orient='index')[0].value_counts()
-
-
-        # OR return status as specific as possible (based on loosely defined dir loc)
-
             index = self.status_type_order.index(stage[-1])
             if accession not in accession_status_counter:
                 accession_status_counter[accession] = index
@@ -160,6 +136,15 @@ class atlas_status:
                 accession_status[accession] = ' '.join(stage)
 
         return accession_status
+
+    @timeit
+    def get_min_max_status(self):
+        # Some paths define multiple statuses. This narrows it to the latter most status according to status_type_order
+        self.accession_min_status = {}
+        self.accession_max_status = {}
+        for accession, status in self.accession_final_status.items():
+            self.accession_min_status[accession] = self.status_type_order[min([self.status_type_order.index(x) for x in status.split(' ')])]
+            self.accession_max_status[accession] = self.status_type_order[max([self.status_type_order.index(x) for x in status.split(' ')])]
 
     @timeit
     def secondary_accession_mapper(self):
@@ -338,7 +323,9 @@ class atlas_status:
                        "SDRF": self.sdrf_path_by_accession,
                        "Last Modified": self.mod_time,
                        "Atlas Eligibility": self.atlas_eligibility_by_accession,
-                       "Curator": self.curators_by_acession
+                       "Curator": self.curators_by_acession,
+                       "min_status": self.accession_min_status, # filter
+                       "max_status": self.accession_min_status # filter
                        }
         # input_dicts.update(self.extracted_metadata)
         input_data = {}
@@ -349,12 +336,29 @@ class atlas_status:
                 else:
                     input_data[accession].update({colname: value})
 
-        # df parsing
+        # df parsing/filtering
         full_df = pd.DataFrame.from_dict(input_data, orient='index')
-        filtered_df = full_df[(full_df["Status"] == "external") | (
-                    full_df["Status"] != "published")]  # filter our published and external results
+        nan_filtered_df = full_df[pd.notnull(full_df['Status'])] # filter if status is missing (ID found in DB not in config loc)
 
-        return filtered_df
+        x = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1)
+
+        nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1) # add index column
+
+        pre_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] < 3)]  # filter out loading and lower (index based see status_type_order!)
+        post_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 3)]  # filter out loading and lower (index based see status_type_order!)
+
+
+        # order and collect dfs
+        output_dfs = OrderedDict()
+        output_dfs["Pre Analysis"] = pre_analysis_df
+        output_dfs["Post Analysis"] = post_analysis_df
+
+        # remove columns
+        remove_cols = ['min_status', 'max_status', 'min_order_index']
+        for name, df in output_dfs.items():
+            output_dfs[name] = df.drop(remove_cols, axis=1)
+
+        return output_dfs
 
     @timeit
     def pickle_out(self):

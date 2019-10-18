@@ -126,24 +126,29 @@ def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
         spreadsheetId=spreadsheet_id,
         body=body).execute()
 
-def google_sheet_output(self, output_df, sheetname):
+def google_sheet_output(self, output_dfs, spreadsheetname):
 
-    self.verboseprint('Outputting to google sheet {} {}'.format(str(output_df.shape),
-                                                                datetime.fromtimestamp(
-                                                                    datetime.now().timestamp()).isoformat()))
+    self.verboseprint('Outputting to google sheet {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
     scope = ['https://spreadsheets.google.com/feeds',
              'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name(self.google_client_secret, scope)
     client = gspread.authorize(creds)
-    sheet = client.open(sheetname)  # this is the spreadsheet not the worksheet
+    spreadsheet = client.open(spreadsheetname)  # this is the spreadsheet not the worksheet
 
-    # add new empty worksheet
-    sheet.add_worksheet(title="In progress {}".format(self.timestamp), rows=output_df.shape[0] + 1,
-                        cols=output_df.shape[1] + 1)
-    # fill new empty worksheet
-    gspread_dataframe.set_with_dataframe(sheet.get_worksheet(1), output_df, include_index=True,
-                                         include_column_header=True)
-    # remove old worksheet in pos 0
-    sheet.del_worksheet(sheet.get_worksheet(0))
+    keep_sheets = []
 
-    post_sheet_formatting(credentials=creds, spreadsheet_id=sheet.id, sheetId=sheet.sheet1.id)
+    for title, df in output_dfs.items():
+        # add new empty worksheet
+        sheetname = '{} {}'.format(title, datetime.now())
+        keep_sheets.append(sheetname)
+
+        spreadsheet.add_worksheet(title=sheetname, rows=df.shape[0] + 1,cols=df.shape[1] + 1)
+        # fill new empty worksheet
+        gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True, include_column_header=True)
+        post_sheet_formatting(credentials=creds, spreadsheet_id=spreadsheet.id, sheetId=spreadsheet.worksheet(sheetname).id)
+
+    # remove old worksheets
+    for sheet in spreadsheet.worksheets():
+        title = sheet.title
+        if title not in keep_sheets:
+            spreadsheet.del_worksheet(spreadsheet.worksheet(title))
