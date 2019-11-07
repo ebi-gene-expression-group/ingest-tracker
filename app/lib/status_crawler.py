@@ -8,6 +8,22 @@ __author__ = "hewgreen"
 __license__ = "Apache 2.0"
 __date__ = "15/07/2019"
 
+
+'''
+Profiling
+
+Top 3 modules by % runtime:
+
+idf_sdrf_metadata_scraper 69%
+get_latest_idf_sdrf 20%
+get_file_modified_date 8.3%
+
+idf_sdrf_metadata_scraper: opens and reads files therefore takes some time. Other tweeks were not faster.
+get_latest_idf_sdrf: not looked at improving this yet
+get_file_modified_date: This could be used to checkup against last pickled run output to avoid opening files that were already read if speed becomes a blocker
+'''
+
+
 import json
 import os
 import pandas as pd
@@ -65,21 +81,26 @@ class atlas_status:
         self.accession_final_status = self.status_tracker() # determines status of each dataset based on location of files
         self.get_min_max_status() # sets two variables with min and max status based on status_type_order
 
-        if crawl:
-            # metadata crawling
+        if crawl: # metadata crawling opening idfs/sdrfs and dbs
+
+            # idf/sdrf/curator_file crawl
             self.secondary_accession_mapper() # extracts secondary accessions from idf making a map dict and a complete set (all_secondary_accessions) for duplication checks
-            self.get_latest_idf_sdrf()  # finds path to latest idf and sdrf file
-            self.mod_time = self.get_file_modified_date()
             self.extracted_metadata = self.idf_sdrf_metadata_scraper()
-            self.atlas_eligibility_by_accession = self.get_atlas_eligibility_status()
             self.curators_by_acession = self.lookup_curator_file()
 
-            # output
-            if google_output:
-                output_dfs = self.df_compiler() # this function should be edited to change the information exported to the google sheets output
-                google_sheet_output(self, output_dfs, self.spreadsheetname) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+            # other
+            self.get_latest_idf_sdrf()  # finds path to latest idf and sdrf file
+            self.mod_time = self.get_file_modified_date()
 
-            self.pickle_out()
+            # metadata from sys DBs
+            self.atlas_eligibility_by_accession = self.get_atlas_eligibility_status()
+
+        # output
+        if google_output:
+            output_dfs = self.df_compiler() # this function should be edited to change the information exported to the google sheets output
+            google_sheet_output(self, output_dfs, self.spreadsheetname) # table exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+
+        self.pickle_out()
 
     @timeit
     def get_status_types(self):
@@ -243,7 +264,6 @@ class atlas_status:
             paths_by_accession[v.get('accession')].append(k[0])
         self.path_by_accession = get_latter_ranked_path(paths_by_accession, ranked_paths)
 
-
     @timeit
     def idf_sdrf_metadata_scraper(self):
         self.verboseprint('Scraping project metadata {}'.format(
@@ -309,56 +329,6 @@ class atlas_status:
                 sdrf_mode_time = os.path.getmtime(sdrf_path)
                 mod_time[accession] = datetime.fromtimestamp(sdrf_mode_time).isoformat()
         return mod_time
-
-    @timeit
-    def df_compiler(self):
-        self.verboseprint('Combining results into summary dataframe {}'.format(
-            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
-        # combine accession keyed dictionaries
-        # NB extracted metadata is an extra dict of dicts with various values from metadata scraping
-        input_dicts = {"Status": self.accession_final_status,
-                       "Discovery Location": self.path_by_accession,
-                       "Secondary Accessions": self.secondary_accessions_mapping,
-                       "IDF": self.idf_path_by_accession,
-                       "SDRF": self.sdrf_path_by_accession,
-                       "Last Modified": self.mod_time,
-                       "Atlas Eligibility": self.atlas_eligibility_by_accession,
-                       "Curator": self.curators_by_acession,
-                       "min_status": self.accession_min_status, # filter
-                       "max_status": self.accession_min_status # filter
-                       }
-        # input_dicts.update(self.extracted_metadata)
-        input_data = {}
-        for colname, input_dict in input_dicts.items():
-            for accession, value in input_dict.items():
-                if accession not in input_data:
-                    input_data[accession] = {colname: value}
-                else:
-                    input_data[accession].update({colname: value})
-
-        # df parsing/filtering
-        full_df = pd.DataFrame.from_dict(input_data, orient='index')
-        nan_filtered_df = full_df[pd.notnull(full_df['Status'])] # filter if status is missing (ID found in DB not in config loc)
-
-        x = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1)
-
-        nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1) # add index column
-
-        pre_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] < 3)]  # filter out loading and lower (index based see status_type_order!)
-        post_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 3)]  # filter out loading and lower (index based see status_type_order!)
-
-
-        # order and collect dfs
-        output_dfs = OrderedDict()
-        output_dfs["Pre Analysis"] = pre_analysis_df
-        output_dfs["Post Analysis"] = post_analysis_df
-
-        # remove columns
-        remove_cols = ['min_status', 'max_status', 'min_order_index']
-        for name, df in output_dfs.items():
-            output_dfs[name] = df.drop(remove_cols, axis=1)
-
-        return output_dfs
 
     @timeit
     def pickle_out(self):
@@ -435,20 +405,57 @@ class atlas_status:
 
         return atlas_eligibility_status # remove entries that do not have a status in self.accession_final_status
 
+    @timeit
+    def df_compiler(self):
+        self.verboseprint('Combining results into summary dataframe {}'.format(
+            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
+        # combine accession keyed dictionaries
+        # NB extracted metadata is an extra dict of dicts with various values from metadata scraping
+        input_dicts = {"Status": self.accession_final_status,
+                       "Discovery Location": self.path_by_accession,
+                       "Secondary Accessions": self.secondary_accessions_mapping,
+                       "IDF": self.idf_path_by_accession,
+                       "SDRF": self.sdrf_path_by_accession,
+                       "Last Modified": self.mod_time,
+                       "Atlas Eligibility": self.atlas_eligibility_by_accession,
+                       "Curator": self.curators_by_acession,
+                       "min_status": self.accession_min_status, # filter
+                       "max_status": self.accession_min_status # filter
+                       }
+        # input_dicts.update(self.extracted_metadata)
+        input_data = {}
+        for colname, input_dict in input_dicts.items():
+            for accession, value in input_dict.items():
+                if accession not in input_data:
+                    input_data[accession] = {colname: value}
+                else:
+                    input_data[accession].update({colname: value})
 
-'''
-Profiling
+        # df parsing/filtering
+        full_df = pd.DataFrame.from_dict(input_data, orient='index')
+        nan_filtered_df = full_df[pd.notnull(full_df['Status'])] # filter if status is missing (ID found in DB not in config loc)
 
-Top 3 modules by % runtime:
+        nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1) # add index column
 
-idf_sdrf_metadata_scraper 69%
-get_latest_idf_sdrf 20%
-get_file_modified_date 8.3%
+        pre_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] < 3)]  # filter out loading and lower (index based see status_type_order!)
+        post_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 3)]  # filter out loading and lower (index based see status_type_order!)
 
-idf_sdrf_metadata_scraper: opens and reads files therefore takes some time. Other tweeks were not faster.
-get_latest_idf_sdrf: not looked at improving this yet
-get_file_modified_date: This could be used to checkup against last pickled run output to avoid opening files that were already read if speed becomes a blocker
-'''
+        # order and collect dfs
+        output_dfs = OrderedDict()
+        output_dfs["Pre Analysis"] = pre_analysis_df
+        output_dfs["Post Analysis"] = post_analysis_df
+
+        # remove columns
+        remove_cols = ['min_status', 'max_status', 'min_order_index']
+        for name, df in output_dfs.items():
+            output_dfs[name] = df.drop(remove_cols, axis=1)
+
+        return output_dfs
+
+
+
+
+
 
 # todo fix bug pickle fails when verbose mode is turned off
 # todo fix bug. confirm that the two curator dicts are merged before input to the table.

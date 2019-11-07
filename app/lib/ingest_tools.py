@@ -1,5 +1,5 @@
 '''
-generates new internal atlas accessions for a given datatype/source
+IN DEV generates new internal atlas accessions for a given datatype/source
 '''
 __author__ = "hewgreen"
 __license__ = "Apache 2.0"
@@ -124,16 +124,3 @@ def get_ae_metadata_files(external_accession, sources_config):
         idf_path_by_accession[accession] = idf_path
         sdrf_path_by_accession[accession] = sdrf_path
     return {'idf paths': idf_path_by_accession, 'sdrf paths':sdrf_path_by_accession}
-
-
-
-
-
-
-# def general_MAGETAB_validation(temp_mage_tab): # only works in fg_atlas env
-#
-#     params = ["perl", "validate_magetab.pl",
-#               "-i", path_to_idf]
-#
-#     pipe = subprocess.Popen(params, stdin=subprocess.PIPE)
-#     pipe.stdin.close()
