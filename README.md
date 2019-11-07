@@ -33,7 +33,7 @@ Before starting you require various configuration files in `app/etc`. These allo
 
 #### Known issues
 
-- Lots of file fail to open die to decode errors. These can mostly be ignored because they occur in files that are not in atlas.. e.g. `Failed to open /Users/hewgreen/google_drive_EBI/ebi-gene-expression-group/ingest-tracker/nfs/production3/ma/home/arrayexpress/ae2_production/data/EXPERIMENT/MTAB/E-MTAB-1221/E-MTAB-1221.idf.txt due to UnicodeDecodeError`
+- Lots of file fail to open die to decode errors. These can mostly be ignored because they occur in files that are not in atlas..
 - DB connections were neccesary to get atlas eligibility results as these results are not written to a log anywhere. 
 
  
