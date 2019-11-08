@@ -1,5 +1,5 @@
 '''
-IN DEV generates new internal atlas accessions for a given datatype/source
+IN DEV FUNC generates new internal atlas accessions for a given datatype/source
 '''
 __author__ = "hewgreen"
 __license__ = "Apache 2.0"

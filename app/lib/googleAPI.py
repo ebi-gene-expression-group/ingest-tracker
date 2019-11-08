@@ -13,6 +13,32 @@ import gspread_dataframe
 from datetime import datetime
 from googleapiclient import discovery
 
+def google_sheet_output(google_client_secret, output_dfs, spreadsheetname):
+
+    print('Outputting to google sheet {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
+    scope = ['https://spreadsheets.google.com/feeds',
+             'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name(google_client_secret, scope)
+    client = gspread.authorize(creds)
+    spreadsheet = client.open(spreadsheetname)  # this is the spreadsheet not the worksheet
+
+    keep_sheets = []
+
+    for title, df in output_dfs.items():
+        # add new empty worksheet
+        sheetname = '{} {}'.format(title, datetime.now())
+        keep_sheets.append(sheetname)
+
+        spreadsheet.add_worksheet(title=sheetname, rows=df.shape[0] + 1,cols=df.shape[1] + 1)
+        # fill new empty worksheet
+        gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True, include_column_header=True)
+        post_sheet_formatting(credentials=creds, spreadsheet_id=spreadsheet.id, sheetId=spreadsheet.worksheet(sheetname).id)
+
+    # remove old worksheets
+    for sheet in spreadsheet.worksheets():
+        title = sheet.title
+        if title not in keep_sheets:
+            spreadsheet.del_worksheet(spreadsheet.worksheet(title))
 
 def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
     requests = []
@@ -125,30 +151,3 @@ def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
     service.spreadsheets().batchUpdate(
         spreadsheetId=spreadsheet_id,
         body=body).execute()
-
-def google_sheet_output(self, output_dfs, spreadsheetname):
-
-    self.verboseprint('Outputting to google sheet {}'.format(datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
-    scope = ['https://spreadsheets.google.com/feeds',
-             'https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_name(self.google_client_secret, scope)
-    client = gspread.authorize(creds)
-    spreadsheet = client.open(spreadsheetname)  # this is the spreadsheet not the worksheet
-
-    keep_sheets = []
-
-    for title, df in output_dfs.items():
-        # add new empty worksheet
-        sheetname = '{} {}'.format(title, datetime.now())
-        keep_sheets.append(sheetname)
-
-        spreadsheet.add_worksheet(title=sheetname, rows=df.shape[0] + 1,cols=df.shape[1] + 1)
-        # fill new empty worksheet
-        gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True, include_column_header=True)
-        post_sheet_formatting(credentials=creds, spreadsheet_id=spreadsheet.id, sheetId=spreadsheet.worksheet(sheetname).id)
-
-    # remove old worksheets
-    for sheet in spreadsheet.worksheets():
-        title = sheet.title
-        if title not in keep_sheets:
-            spreadsheet.del_worksheet(spreadsheet.worksheet(title))

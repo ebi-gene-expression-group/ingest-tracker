@@ -16,6 +16,7 @@ __date__ = "24/07/2019"
 
 import argparse
 from app.lib import status_crawler
+from app.lib import trackerBuild
 
 def parameters():
     parser = argparse.ArgumentParser(description='Load an external dataset into Atlas.')
@@ -40,4 +41,5 @@ def parameters():
 if __name__ == '__main__':
 
     args = parameters()
-    status_crawler.atlas_status(args.sources_config, args.db_config, args.google_client_secret, args.google_output, args.sheetname, crawl=True)
+    # status_crawler.atlas_status(args.sources_config, args.db_config, args.google_client_secret, args.google_output, args.sheetname, crawl=True)
+    trackerBuild.tracker_build(args.sources_config, args.db_config, args.google_client_secret, args.google_output, args.sheetname)
