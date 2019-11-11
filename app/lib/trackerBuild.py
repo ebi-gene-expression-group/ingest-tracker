@@ -23,21 +23,21 @@ from collections import OrderedDict
 import pickle
 import json
 import os
+import sys
 
 class tracker_build:
     def __init__(self, sources_config, db_config, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
 
         # configuration
         self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
-        self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published']
+        self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev', 'published']
         self.google_client_secret = google_client_secret
         self.spreadsheetname = spreadsheetname
 
         # crawling
         self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
         self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config) # in file crawling on nfs
-        self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata
-
+        self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata plus adds private sample info from DB
         # output
         if google_output:
             output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
@@ -47,22 +47,27 @@ class tracker_build:
         self.pickle_out()
 
     def df_compiler(self):
+        '''
+        Combines accession keyed dictionaries. Add more dict to input_dict to add mor info to tracker.
+        You may want to adjust column auto column widths in googleAPI.py
+        '''
+
+
         print('Combining results into summary dataframe {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
-        # combine accession keyed dictionaries
-        # NB extracted metadata is an extra dict of dicts with various values from metadata scraping
+
         input_dicts = {"Status": self.status_crawl.accession_final_status,
+                       "Web Link": self.db_crawl.accession_urls,
                        "Discovery Location": self.status_crawl.path_by_accession,
                        "Secondary Accessions": self.file_metadata.secondary_accessions_mapping,
                        "IDF": self.status_crawl.idf_path_by_accession,
                        "SDRF": self.status_crawl.sdrf_path_by_accession,
                        "Last Modified": self.file_metadata.mod_time,
-                       "Atlas Eligibility": self.db_crawl.atlas_eligibility_by_accession,
+                       "Atlas Eligibility": self.db_crawl.atlas_eligibility_status,
                        "Curator": self.file_metadata.curators_by_acession,
                        "min_status": self.status_crawl.accession_min_status, # filter
                        "max_status": self.status_crawl.accession_min_status # filter
                        }
-        # input_dicts.update(self.extracted_metadata)
         input_data = {}
         for colname, input_dict in input_dicts.items():
             for accession, value in input_dict.items():

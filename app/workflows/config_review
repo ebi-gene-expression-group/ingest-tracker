@@ -1,0 +1,33 @@
+'''
+output config json to df for quick review
+This script is just for debug
+'''
+
+__author__ = "hewgreen"
+__license__ = "Apache 2.0"
+__date__ = "24/07/2019"
+
+import argparse
+import json
+import pandas as pd
+
+
+
+def parameters():
+    parser = argparse.ArgumentParser(description='Load an external dataset into Atlas.')
+    parser.add_argument("-s", "--sources_config", dest="sources_config",
+                        help="Configuration file with paths. Private doc available locally.",
+                        required=True)
+    return parser.parse_args()
+
+if __name__ == '__main__':
+
+    args = parameters()
+    with open(args.sources_config) as f:
+        sources_config = json.load(f)
+
+    df = pd.DataFrame.from_dict(sources_config, orient='index')
+    df.to_csv('../etc/temp.csv')
+
+
+

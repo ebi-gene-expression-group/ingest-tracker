@@ -15,6 +15,8 @@ import re
 from collections import defaultdict
 from tqdm import tqdm
 import glob
+import requests
+import sys
 
 class atlas_status:
     def __init__(self, sources_config, status_type_order):
@@ -57,30 +59,45 @@ class atlas_status:
         return list(status_types)
 
     def accession_search(self):
+
+        def accession_match(accession, info, path, all_primary_accessions, found_accessions):
+            if self.accession_regex.match(accession):
+                all_primary_accessions.add(accession)
+                found_accessions[(path, accession)] = dict(
+                    # config_path=path,
+                    accession=accession,
+                    tech=info.get('tech', None),
+                    stage=info.get('stage', None),
+                    resource=info.get('resource', None),
+                    source=info.get('source', None)
+                )
+            return all_primary_accessions, found_accessions
+
         print('Performing accession search {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         all_primary_accessions = set()
         found_accessions = {}
         counter = 0
+        counter += 1
         for path, info in self.sources_config.items():
-            counter += 1
-            print('Searching path {} {}/{}'.format(path, counter, len(self.sources_config)))
+            if path.startswith('https://'): # web path handling
+                resp = requests.get(url=path)
+                data = resp.json().get('aaData')
+                for experiment in data:
+                    accession = experiment.get('experimentAccession')
+                    accession_match(accession, info, path, all_primary_accessions, found_accessions)
+                    # todo pass loadDate or lastUpdate date from web to tracker
 
-            pre_accessions = os.listdir(path)
-            for pre_accession in pre_accessions:
-                if not pre_accession.endswith('.merged.idf.txt'):
-                    accession = pre_accession.strip('.idf.txt')
-                    if self.accession_regex.match(accession):
-                        all_primary_accessions.add(accession)
-                        found_accessions[(path, accession)] = dict(
-                                                                        # config_path=path,
-                                                                        accession=accession,
-                                                                        tech=info.get('tech', None),
-                                                                        stage=info.get('stage', None),
-                                                                        resource=info.get('resource', None),
-                                                                        source=info.get('source', None)
-                        )
-        print('Found {} accessions in {} directories'.format(len(found_accessions), len(self.sources_config)))
+            else: # nfs dir handling
+                print('Searching path {} {}/{}'.format(path, counter, len(self.sources_config)))
+
+                pre_accessions = os.listdir(path)
+                for pre_accession in pre_accessions:
+                    if not pre_accession.endswith('.merged.idf.txt'):
+                        accession = pre_accession.strip('.idf.txt')
+                        accession_match(accession, info, path, all_primary_accessions, found_accessions)
+
+            print('Found {} accessions in {} directories'.format(len(found_accessions), len(self.sources_config)))
         return all_primary_accessions, found_accessions
 
     def status_tracker(self):
@@ -112,6 +129,12 @@ class atlas_status:
         return accession_min_status, accession_max_status
 
     def get_latest_idf_sdrf(self):
+        '''
+        Does not return idf/sdrf paths for experiments found on https endpoints.
+        Latest loc will be latest found on nfs.
+        '''
+
+
         print('Getting latest IDF and SDRF paths {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
 
@@ -145,7 +168,7 @@ class atlas_status:
                         path_ranks = [ranked_paths.index(n) for n in trunc_paths]
                         latest_path = path_list[path_ranks.index(max(path_ranks))]  # get idf/sdrf from latter loc
                     except ValueError:
-                        continue #todo this needs more investigation in prod got ValueError: '/nfs/production3/ma/home/atlas3-production/singlecell/experiment/ng' is not in list
+                        continue
                 ranked_paths_by_accession[accession] = latest_path
             return ranked_paths_by_accession
 

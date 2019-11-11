@@ -29,7 +29,7 @@ def google_sheet_output(google_client_secret, output_dfs, spreadsheetname):
         sheetname = '{} {}'.format(title, datetime.now())
         keep_sheets.append(sheetname)
 
-        spreadsheet.add_worksheet(title=sheetname, rows=df.shape[0] + 1,cols=df.shape[1] + 1)
+        spreadsheet.add_worksheet(title=sheetname, rows=df.shape[0] + 1, cols=df.shape[1] + 1)
         # fill new empty worksheet
         gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True, include_column_header=True)
         post_sheet_formatting(credentials=creds, spreadsheet_id=spreadsheet.id, sheetId=spreadsheet.worksheet(sheetname).id)
@@ -104,8 +104,8 @@ def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
             "range": {
                 "sheetId": sheetId,
                 "dimension": "COLUMNS",
-                "startIndex": 2,
-                "endIndex": 4
+                "startIndex": 3,
+                "endIndex": 5
             },
             "properties": {
                 "pixelSize": 160
@@ -118,7 +118,7 @@ def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
         "dimensions": {
           "sheetId": sheetId,
           "dimension": "COLUMNS",
-          "startIndex": 5
+          "startIndex": 6
         }
       }
     })
