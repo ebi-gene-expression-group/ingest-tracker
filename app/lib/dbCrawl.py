@@ -1,7 +1,6 @@
 '''
 functions that crawl databases to extract tracking metadata
 
-Private 'published' samples are not available at json endpoints so entries for these are added from the Atlas db
 '''
 
 __author__ = "hewgreen"
