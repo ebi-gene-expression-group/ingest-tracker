@@ -82,13 +82,13 @@ class tracker_build:
 
         nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1) # add index column
 
-        pre_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] < 3)]  # filter out loading and lower (index based see status_type_order!)
-        post_analysis_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 3)]  # filter out loading and lower (index based see status_type_order!)
+        external_df = nan_filtered_df[(nan_filtered_df["min_order_index"] < 1)]  # filter out loading and lower (index based see status_type_order!)
+        internal_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 1)]  # filter out loading and lower (index based see status_type_order!)
 
         # order and collect dfs
         output_dfs = OrderedDict()
-        output_dfs["Pre Analysis"] = pre_analysis_df
-        output_dfs["Post Analysis"] = post_analysis_df
+        output_dfs["Discover Experiments"] = external_df
+        output_dfs["Track Ingested Experiments"] = internal_df
 
         # remove columns
         remove_cols = ['min_status', 'max_status', 'min_order_index']

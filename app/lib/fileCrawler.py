@@ -35,6 +35,15 @@ class file_crawler:
         self.curators_by_acession = self.lookup_curator_file()
         self.mod_time = self.get_file_modified_date()
 
+        '''
+        Single cell vs. bulk
+        Analysis type: Baseline, Differential, Trajectory
+        Platform type: Microarray vs. Sequencing (could be combined with sc vs. bulk)
+        Title
+        Species
+        For single-cell experiments: Library construction type (Smart-seq, 10x, etc) We need this for stats
+        '''
+
     def secondary_accession_mapper(self):
         print('Finding secondary accessions {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
