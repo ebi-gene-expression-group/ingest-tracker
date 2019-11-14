@@ -13,6 +13,10 @@ import re
 import csv
 import os
 import json
+import sys
+import pandas as pd
+import collections
+
 
 class file_crawler:
 
@@ -27,21 +31,25 @@ class file_crawler:
         self.all_secondary_accessions = secondary_accession_mapper[0]
         self.secondary_accessions_mapping = secondary_accession_mapper[1]
 
-        idf_sdrf_metadata_scrape = self.idf_sdrf_metadata_scraper()
-        self.extracted_metadata = idf_sdrf_metadata_scrape[0]
-        self.unicode_error_accessions = idf_sdrf_metadata_scrape[1]
-        self.unicode_error_paths = idf_sdrf_metadata_scrape[2]
+        # idf_sdrf_metadata_scrape = self.idf_sdrf_metadata_scraper()
+        # self.extracted_metadata = idf_sdrf_metadata_scrape[0]
+        # self.unicode_error_accessions = idf_sdrf_metadata_scrape[1]
+        # self.unicode_error_paths = idf_sdrf_metadata_scrape[2]
+
+        self.unicode_error_paths = []
+        self.emptyfile_error_paths = []
+        self.extracted_metadata = self.idf_sdrf_metadata_scraper()
 
         self.curators_by_acession = self.lookup_curator_file()
         self.mod_time = self.get_file_modified_date()
 
         '''
-        Single cell vs. bulk
-        Analysis type: Baseline, Differential, Trajectory
-        Platform type: Microarray vs. Sequencing (could be combined with sc vs. bulk)
-        Title
-        Species
-        For single-cell experiments: Library construction type (Smart-seq, 10x, etc) We need this for stats
+        Single cell vs. bulk GET from conf file loc
+        Analysis type: Baseline, Differential, Trajectory HALF DONE sc Analysis Type need to combine this with pickup loc for bulk.
+        Platform type: Microarray vs. Sequencing (could be combined with sc vs. bulk) idf experiment type.
+        Title DONE
+        Species DONE 'Organism'
+        For single-cell experiments: Library construction type (Smart-seq, 10x, etc) We need this for stats DONE 'Single-cell Experiment Type'
         '''
 
     def secondary_accession_mapper(self):
@@ -57,7 +65,7 @@ class file_crawler:
         secondary_accessions_mapping = {}
         for idf_file in tqdm(idf_files, unit='IDF files'):
             accession = idf_file.split('/')[-1].strip('.idf.txt')
-            with open (idf_file, "r") as f:
+            with open(idf_file, "r") as f:
                 try:
                     contents = f.read()
                 except UnicodeDecodeError:
@@ -73,47 +81,71 @@ class file_crawler:
         return all_secondary_accessions, secondary_accessions_mapping
 
     def idf_sdrf_metadata_scraper(self):
-        print('Scraping project metadata {}'.format(
-            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
-        extracted_metadata = {}
+        '''
+        Includes non utf-8 handling: strips unknown characters often in pup title
+        Fast method: reads metadata approximately (return first find) for speed improvements
+        Strategy assumes search is slowest aspect.
+        10x faster than pandas read methods.
+        10x faster than string match methods.
+        '''
 
-        # edit this list to extract different metadata.
-        # NB found some column names contain an erroneous space which is accounted for.
-        idf_get = {'Experiment Type': ['Comment[EAExperimentType', 'Comment [EAExperimentType'],
-                   'Curator': ['Comment[EACurator]', 'Comment [EACurator]'],
-                   'Analysis Type': ['Comment[AEExperimentType]', 'Comment [AEExperimentType]']}
-        sdrf_get = {'Single-cell Experiment Type' : ['Comment[library construction]', 'Comment [library construction]'],
-                    'Organism' : ['Characteristics[organism]', 'Characteristics [organism]', 'Characteristics [Organism]']}
-        assert not set(idf_get.keys()).intersection(set(sdrf_get.keys())), 'Keys should be unique in metadata config lists above'
+        def file_reader(filename):
+            try:
+                with open(filename, mode='r', newline='') as s:  # strict text handling
+                    fileContent = [x.rstrip().split('\t') for x in list(s)]
+            except UnicodeDecodeError:
+                self.unicode_error_paths.append(filename)
+                with open(filename, mode='rb') as s:  # strip non utf-8
+                    fileContent = [x.decode('utf-8', 'ignore').rstrip().split('\t') for x in list(s)]
 
-        metadata_get = [{'paths': self.status.sdrf_path_by_accession, 'get_params' : sdrf_get},
-                        {'paths': self.status.idf_path_by_accession, 'get_params': idf_get}]
+            if len(fileContent) <= 1:  # defend against empty files
+                self.emptyfile_error_paths.append(filename)
+                return None
+            else:
+                return fileContent
 
-        unicode_error_accessions = []
-        unicode_error_paths = []
-        for metadata_file_type in metadata_get:
-            for accession, metadata_file in metadata_file_type.get('paths').items():
-                if metadata_file:
-                    try:
-                        with open(metadata_file, newline='') as s:
-                            reader = csv.DictReader(s, delimiter='\t')
-                            for row in reader:
-                                for output_colname, input_colname_list in metadata_file_type.get('get_params').items():
-                                    for input_colname in input_colname_list:
-                                        output_value = row.get(input_colname)
-                                        if output_value and output_value != None:
-                                            break
-                                    if output_colname not in extracted_metadata and output_value != None:
-                                        extracted_metadata[output_colname] = {accession: output_value}
-                                    elif output_value != None:
-                                        extracted_metadata[output_colname].update({accession : output_value})
-                    except UnicodeDecodeError:
-                        unicode_error_accessions.append(accession)
-                        unicode_error_paths.append(metadata_file)
-                        print('Failed to open {} due to UnicodeDecodeError'.format(metadata_file))
-                        # todo fix unit decode error affecting some files. They tend to be charset=unknown-8bit
-                        continue
-        return extracted_metadata, unicode_error_accessions, unicode_error_paths
+        def idf_extract():
+            query = {'Experiment Type': re.compile(r'Comment\[EAExperimentType\]|Comment \[EAExperimentType\]'),
+                            'Curator': re.compile(r'Comment\[EACurator\]|Comment \[EACurator\]'),
+                            'Analysis Type': re.compile(r'Comment\[AEExperimentType\]|Comment \[AEExperimentType\]'),
+                            'Investigation Title': re.compile(r'Investigation Title')
+                            }
+
+            extracted_metadata = collections.defaultdict(dict)
+
+            for accession, filename in tqdm(self.status.idf_path_by_accession.items(), unit='idf files'):
+                fileContent = file_reader(filename)
+                for output_key, p in query.items():
+                    if fileContent:
+                        for line in fileContent:
+                            if re.match(p, line[0]):
+                                v = line[1]
+                                extracted_metadata[output_key].update({accession: v})
+                                break
+            return extracted_metadata
+
+        def sdrf_extract():
+
+            query = {
+                'Single-cell Experiment Type': re.compile(r'Comment\[library construction\]|Comment \[library construction\]'),
+                'Organism': re.compile(r'Characteristics\[organism\]|Characteristics \[organism\]|Characteristics \[Organism\]')
+                }
+
+            extracted_metadata = collections.defaultdict(dict)
+
+            for accession, filename in tqdm(self.status.sdrf_path_by_accession.items(), unit='sdrf files'):
+                fileContent = file_reader(filename)
+                if fileContent:
+                    for output_key, p in query.items():
+                        hits = [ind for ind, x in enumerate(fileContent[0]) if re.match(p, x)]
+                        if hits:
+                            v = ' & '.join([fileContent[1][x] for x in hits]) # extract value from 1st row only
+                            extracted_metadata[output_key].update({accession: v})
+
+
+            return extracted_metadata
+
+        return idf_extract().update(sdrf_extract())
 
     def lookup_curator_file(self):
         curator_signature = {}

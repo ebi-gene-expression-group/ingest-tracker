@@ -111,8 +111,8 @@ class tracker_build:
         filename = 'logs/last_run_text.log'
         data = {
             "Primary accessions found": list(self.status_crawl.all_primary_accessions),
-            "Failed to open accessions due to unicode error": list(self.file_metadata.unicode_error_accessions),
-            "Failed to open file paths due to unicode error": list(self.file_metadata.unicode_error_paths)
+            "Detected empty file error": list(self.file_metadata.emptyfile_error_paths),
+            "Detected unicode errors": list(self.file_metadata.unicode_error_paths)
         }
         with open(filename, 'w') as filehandler:
             json.dump(data, filehandler)
@@ -124,7 +124,7 @@ Profiling performed before refactoring
 
 Top 3 modules by % runtime:
 
-idf_sdrf_metadata_scraper 69%
+idf_sdrf_metadata_scraper 69% This has since been updated and is 10x faster
 get_latest_idf_sdrf 20%
 get_file_modified_date 8.3%
 

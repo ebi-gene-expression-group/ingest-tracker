@@ -6,12 +6,26 @@ This repo contains an internal Atlas dataset tracker. The tracker writes out to 
 
 
 ## Navigating the code
-### Status Tracking
 
-The class `status_crawler.py` can be ran with `workflows/run_status_crawler.py` passing arguments for config files required. These are private and only available locally.
-The status tracker crawls the filesystem directed by `sources_config.json` to determine the state of each dataset.
-The state and other metadata is collected on each dataset and made available in the class `status_crawler` namespace.
-An overview is written to `https://docs.google.com/spreadsheets/d/1rIf3t2wcfYdE8rgxDhYOwr-NIGTIzWpAfrlFeuiD9qE/edit#gid=2054734368` which is updated on every run.
+N.B. You cannot run this code without private config files which point the code at nfs metadata paths and internal DBs.
+ 
+An example of using the main class can be found in `run_status_crawler.py`
+
+e.g.
+```
+trackerBuild.tracker_build(args.sources_config, args.db_config, args.google_client_secret, args.google_output, args.sheetname)
+```
+Essentially this will update the overview which is written to `https://docs.google.com/spreadsheets/d/1rIf3t2wcfYdE8rgxDhYOwr-NIGTIzWpAfrlFeuiD9qE/edit#gid=2054734368`
+
+The main class is in `trackerBuild.py` and works approximately like so:
+
+1. crawls nfs for experiment paths and accessions
+1. opens idf/sdrf file to extract specific experiment metadata
+1. extract metadata from DBs
+1. compile a summary dataframe
+1. output to google sheet API
+
+Each of these task are carried out sequentially and call separate scripts.
 
 
 #### Deployment

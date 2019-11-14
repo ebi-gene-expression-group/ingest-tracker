@@ -25,8 +25,7 @@ class atlas_status:
         with open(sources_config) as f:
             self.sources_config = json.load(f)
         self.status_type_order = status_type_order
-        self.accession_regex = re.compile(
-            '^E-(GEOD|MTAB|PROT|ENAD|AFMX|CURD|EHCA|MEXP|TABM|NASC|ERAD|GEUV|JJRD|ATMX|HCAD|MIMR|CBIL|MAXD)-[0-9]+$')
+        self.accession_regex = re.compile('^E-[A-Z]{4}-\d+$')
 
         # status tracking
         self.status_types = self.get_status_types()
