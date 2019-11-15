@@ -44,7 +44,6 @@ Before starting you require various configuration files in `app/etc`. These allo
 |**processed**|Analysis is complete.|
 |**published**|A dataset is available to the frontend web application.|
 
-
 #### Config
 
 Supports paths on nfs or public lookup via e.g. 'https://www.ebi.ac.uk/gxa/json/experiments'. Use URL as entry name instead of path.
