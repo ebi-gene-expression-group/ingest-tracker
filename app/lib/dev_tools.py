@@ -1,15 +1,15 @@
 '''
-generates new internal atlas accessions for a given datatype/source
+IN DEV FUNC generates new internal atlas accessions for a given datatype/source
 '''
 __author__ = "hewgreen"
 __license__ = "Apache 2.0"
 __date__ = "29/07/2019"
 
-from app.lib import status_crawler
 import re
 import os
 from datetime import datetime
 import pickle
+from app.lib import statusCrawl
 
 def atlas_status_from_last_save():
     log_path = '../workflows/logs/'
@@ -27,7 +27,7 @@ def accessioner(prefix, sources_config=False, secondary_accession=False):
 
     def counter_method(prefix, sources_config):
         current_accession = 0
-        atlas_status = status_crawler.atlas_status(sources_config, crawl=False) # partial fast crawl just for accessions
+        atlas_status = statusCrawl.atlas_status(sources_config, crawl=False) # partial fast crawl just for accessions
         for accession in atlas_status.all_primary_accessions:
             numeric_part = accession.split('-')[-1]
             prefix_part = accession.split('-')[-2]
@@ -124,16 +124,3 @@ def get_ae_metadata_files(external_accession, sources_config):
         idf_path_by_accession[accession] = idf_path
         sdrf_path_by_accession[accession] = sdrf_path
     return {'idf paths': idf_path_by_accession, 'sdrf paths':sdrf_path_by_accession}
-
-
-
-
-
-
-# def general_MAGETAB_validation(temp_mage_tab): # only works in fg_atlas env
-#
-#     params = ["perl", "validate_magetab.pl",
-#               "-i", path_to_idf]
-#
-#     pipe = subprocess.Popen(params, stdin=subprocess.PIPE)
-#     pipe.stdin.close()
