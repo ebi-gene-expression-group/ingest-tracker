@@ -10,12 +10,10 @@ import glob
 from datetime import datetime
 from tqdm import tqdm
 import re
-import csv
 import os
 import json
-import sys
-import pandas as pd
 import collections
+import sys
 
 
 class file_crawler:
@@ -26,15 +24,6 @@ class file_crawler:
         with open(sources_config) as f:
             self.sources_config = json.load(f)
         self.status = status_crawl
-
-        secondary_accession_mapper = self.secondary_accession_mapper()  # extracts secondary accessions from idf making a map dict and a complete set (all_secondary_accessions) for duplication checks
-        self.all_secondary_accessions = secondary_accession_mapper[0]
-        self.secondary_accessions_mapping = secondary_accession_mapper[1]
-
-        # idf_sdrf_metadata_scrape = self.idf_sdrf_metadata_scraper()
-        # self.extracted_metadata = idf_sdrf_metadata_scrape[0]
-        # self.unicode_error_accessions = idf_sdrf_metadata_scrape[1]
-        # self.unicode_error_paths = idf_sdrf_metadata_scrape[2]
 
         self.unicode_error_paths = []
         self.emptyfile_error_paths = []
@@ -51,34 +40,6 @@ class file_crawler:
         Species DONE 'Organism'
         For single-cell experiments: Library construction type (Smart-seq, 10x, etc) We need this for stats DONE 'Single-cell Experiment Type'
         '''
-
-    def secondary_accession_mapper(self):
-        print('Finding secondary accessions {}'.format(
-            datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
-        idf_files = []
-        for path, values in tqdm(self.status.sources_config.items(), unit='Paths in config'):
-            print('Secondary accession search in {}'.format(path))
-            f = [f for f in glob.glob(path + "**/*.idf.txt", recursive=True)]
-            idf_files += f
-
-        all_secondary_accessions = set()
-        secondary_accessions_mapping = {}
-        for idf_file in tqdm(idf_files, unit='IDF files'):
-            accession = idf_file.split('/')[-1].strip('.idf.txt')
-            with open(idf_file, "r") as f:
-                try:
-                    contents = f.read()
-                except UnicodeDecodeError:
-                    print('Cannot open {}'.format(idf_file))
-                search = re.findall(r'Comment \[SecondaryAccession\](.*?)\n', contents)
-                if search:
-                    secondary_accessions = [x.strip('\t') for x in search]
-                    if len(secondary_accessions) == 1 and len(secondary_accessions[0]) == 0:
-                        continue
-                    else:
-                        secondary_accessions_mapping[accession] = secondary_accessions
-                        all_secondary_accessions.update(secondary_accessions)
-        return all_secondary_accessions, secondary_accessions_mapping
 
     def idf_sdrf_metadata_scraper(self):
         '''
@@ -105,10 +66,12 @@ class file_crawler:
                 return fileContent
 
         def idf_extract():
+            print('\nExtracting metadata from idf files...\n')
             query = {'Experiment Type': re.compile(r'Comment\[EAExperimentType\]|Comment \[EAExperimentType\]'),
                             'Curator': re.compile(r'Comment\[EACurator\]|Comment \[EACurator\]'),
                             'Analysis Type': re.compile(r'Comment\[AEExperimentType\]|Comment \[AEExperimentType\]'),
-                            'Investigation Title': re.compile(r'Investigation Title')
+                            'Investigation Title': re.compile(r'Investigation Title'),
+                            'Secondary Accession': re.compile(r'Comment \[SecondaryAccession\]|Comment\[SecondaryAccession\]')
                             }
 
             extracted_metadata = collections.defaultdict(dict)
@@ -119,13 +82,16 @@ class file_crawler:
                     if fileContent:
                         for line in fileContent:
                             if re.match(p, line[0]):
-                                v = line[1]
+                                try:
+                                    v = line[1]
+                                except IndexError:
+                                    continue
                                 extracted_metadata[output_key].update({accession: v})
                                 break
             return extracted_metadata
 
         def sdrf_extract():
-
+            print('\nExtracting metadata from sdrf files...\n')
             query = {
                 'Single-cell Experiment Type': re.compile(r'Comment\[library construction\]|Comment \[library construction\]'),
                 'Organism': re.compile(r'Characteristics\[organism\]|Characteristics \[organism\]|Characteristics \[Organism\]')
@@ -145,7 +111,19 @@ class file_crawler:
 
             return extracted_metadata
 
-        return idf_extract().update(sdrf_extract())
+        def merge_defaultdicts(d, d1):
+            for k, v in d1.items():
+                if (k in d):
+                    d[k].update(d1[k])
+                else:
+                    d[k] = d1[k]
+            return d
+
+        extracted_idf_metadata = idf_extract()
+        extracted_sdrf_metadata = sdrf_extract()
+        extracted_metadata = merge_defaultdicts(extracted_idf_metadata, extracted_sdrf_metadata)
+
+        return extracted_metadata
 
     def lookup_curator_file(self):
         curator_signature = {}

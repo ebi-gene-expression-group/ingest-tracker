@@ -104,24 +104,15 @@ def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
             "range": {
                 "sheetId": sheetId,
                 "dimension": "COLUMNS",
-                "startIndex": 3,
-                "endIndex": 5
+                "startIndex": 2
             },
             "properties": {
-                "pixelSize": 160
+                "pixelSize": 190
             },
             "fields": "pixelSize"
         }
     })
-    requests.append({
-      "autoResizeDimensions": {
-        "dimensions": {
-          "sheetId": sheetId,
-          "dimension": "COLUMNS",
-          "startIndex": 6
-        }
-      }
-    })
+
 
 
     # wrapStrategy clip

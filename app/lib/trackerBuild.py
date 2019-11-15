@@ -48,7 +48,8 @@ class tracker_build:
 
     def df_compiler(self):
         '''
-        Combines accession keyed dictionaries. Add more dict to input_dict to add mor info to tracker.
+        Combines experiment accession keyed dictionaries.
+        Add more dict to input_dict to add mor info to tracker.
         You may want to adjust column auto column widths in googleAPI.py
         '''
 
@@ -59,12 +60,17 @@ class tracker_build:
         input_dicts = {"Status": self.status_crawl.accession_final_status,
                        "Web Link": self.db_crawl.accession_urls,
                        "Discovery Location": self.status_crawl.path_by_accession,
-                       "Secondary Accessions": self.file_metadata.secondary_accessions_mapping,
+                       "Investigation Title": self.file_metadata.extracted_metadata.get('Investigation Title'),
+                       "Experiment Type": self.file_metadata.extracted_metadata.get('Experiment Type'),
+                       "Analysis Type": self.file_metadata.extracted_metadata.get('Analysis Type'),
+                       "Organism": self.file_metadata.extracted_metadata.get('Organism'),
+                       "Single-cell Experiment Type": self.file_metadata.extracted_metadata.get('Single-cell Experiment Type'),
+                       "Secondary Accessions": self.file_metadata.extracted_metadata.get('Secondary Accession'),
                        "IDF": self.status_crawl.idf_path_by_accession,
                        "SDRF": self.status_crawl.sdrf_path_by_accession,
                        "Last Modified": self.file_metadata.mod_time,
                        "Atlas Eligibility": self.db_crawl.atlas_eligibility_status,
-                       "Curator": self.file_metadata.curators_by_acession,
+                       "Curator": {**self.file_metadata.curators_by_acession, **self.file_metadata.extracted_metadata.get('Curator')},
                        "min_status": self.status_crawl.accession_min_status, # filter
                        "max_status": self.status_crawl.accession_min_status # filter
                        }
