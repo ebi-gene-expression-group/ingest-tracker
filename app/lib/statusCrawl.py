@@ -81,7 +81,8 @@ class atlas_status:
         for path, info in self.sources_config.items():
             if path.startswith('https://'): # web path handling
                 resp = requests.get(url=path)
-                data = resp.json().get('aaData')
+                # data = resp.json().get('aaData')
+                data = resp.json().get('experiments')
                 for experiment in data:
                     accession = experiment.get('experimentAccession')
                     accession_match(accession, info, path, all_primary_accessions, found_accessions)
