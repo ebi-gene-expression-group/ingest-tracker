@@ -70,6 +70,13 @@ class tracker_build:
                        "SDRF": self.status_crawl.sdrf_path_by_accession,
                        "Last Modified": self.file_metadata.mod_time,
                        "Atlas Eligibility": self.db_crawl.atlas_eligibility_status,
+                       "GeneQuantSoft": self.file_metadata.extracted_metadata.get('GeneQuantSoft'),
+                       "GQSVersion": self.file_metadata.extracted_metadata.get('GQSVersion'),
+                       "MappingSoft": self.file_metadata.extracted_metadata.get('MappingSoft'),
+                       "MappingSoftVersion": self.file_metadata.extracted_metadata.get('MappingSoftVersion'),
+                       "E!Version": self.file_metadata.extracted_metadata.get('E!Version'),
+                       "TransQuantSoft": self.file_metadata.extracted_metadata.get('TransQuantSoft'),
+                       "TQSVersion": self.file_metadata.extracted_metadata.get('TQSVersion'),
                        "Curator": {**self.file_metadata.curators_by_acession, **self.file_metadata.extracted_metadata.get('Curator')},
                        "min_status": self.status_crawl.accession_min_status, # filter
                        "max_status": self.status_crawl.accession_min_status # filter
@@ -93,10 +100,21 @@ class tracker_build:
 
         # order and collect dfs
         output_dfs = OrderedDict()
-        output_dfs["Discover Experiments"] = external_df
+        output_dfs["Discover Experiments"] = external_df.drop(['Web Link',
+                                                               'GeneQuantSoft',
+                                                               'GQSVersion',
+                                                               'MappingSoft',
+                                                               'MappingSoftVersion',
+                                                               'E!Version',
+                                                               'TransQuantSoft',
+                                                               'TQSVersion',
+                                                               'Curator',
+                                                               'Experiment Type',
+                                                               'Single-cell Experiment Type'
+                                                               ], axis=1) # remove columns from specific df
         output_dfs["Track Ingested Experiments"] = internal_df
 
-        # remove columns
+        # remove these columns from all dfs
         remove_cols = ['min_status', 'max_status', 'min_order_index']
         for name, df in output_dfs.items():
             output_dfs[name] = df.drop(remove_cols, axis=1)

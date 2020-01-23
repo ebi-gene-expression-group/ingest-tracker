@@ -111,6 +111,49 @@ class file_crawler:
 
             return extracted_metadata
 
+
+        def analysis_extract():
+            print('\nExtracting metadata from analysis-methods files...\n')
+
+            # pattern 1 extracts row based on first column
+            # pattern 2 parses value from pattern 1 match
+            query = {
+                'GeneQuant': (re.compile(r'Gene Quantification|Quantification'),
+                                  {'GeneQuantSoft': re.compile('^(.*)(?= version)'),
+                                   'GQSVersion': re.compile('(?<=version: )(.*)$')
+                                   }),
+                'TransQuant': (re.compile(r'Transcript Quantification'),
+                                  {'TransQuantSoft': re.compile('^(.*)(?= version)'),
+                                   'TQSVersion': re.compile('(?<=version: )(.*)$')
+                                   }),
+                'Mapping': (re.compile(r'Read Mapping'),
+                                    {'MappingSoft': re.compile('\) (.*) version'),
+                                    'MappingSoftVersion': re.compile('(?<=\) )(.*)(?= version)'),
+                                    'E!Version': re.compile('(?<=Ensembl Genomes release: )(.*)(?=\))')
+                                    })
+                }
+
+            extracted_metadata = collections.defaultdict(dict)
+
+            for accession, filename in tqdm(self.status.analysis_path_by_accession.items(), unit='analysis files'):
+                fileContent = file_reader(filename)
+                for key, p in query.items():
+                    if fileContent:
+                        for line in fileContent:
+                            if re.match(p[0], line[0]):
+                                try:
+                                    v_str = line[1]
+                                except IndexError:
+                                    continue
+
+                                for output_key, pat in p[1].items():
+                                    v_search = pat.search(v_str)
+                                    if v_search:
+                                        v = v_search.group(1)
+                                        extracted_metadata[output_key].update({accession: v})
+            return extracted_metadata
+
+
         def merge_defaultdicts(d, d1):
             for k, v in d1.items():
                 if (k in d):
@@ -119,9 +162,10 @@ class file_crawler:
                     d[k] = d1[k]
             return d
 
+        extracted_analysis_metadata = analysis_extract()
         extracted_idf_metadata = idf_extract()
         extracted_sdrf_metadata = sdrf_extract()
-        extracted_metadata = merge_defaultdicts(extracted_idf_metadata, extracted_sdrf_metadata)
+        extracted_metadata = merge_defaultdicts(merge_defaultdicts(extracted_idf_metadata, extracted_sdrf_metadata), extracted_analysis_metadata)
 
         return extracted_metadata
 

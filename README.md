@@ -15,7 +15,7 @@ e.g.
 ```
 trackerBuild.tracker_build(args.sources_config, args.db_config, args.google_client_secret, args.google_output, args.sheetname)
 ```
-Essentially this will update the overview which is written to `https://docs.google.com/spreadsheets/d/1rIf3t2wcfYdE8rgxDhYOwr-NIGTIzWpAfrlFeuiD9qE/edit#gid=2054734368`
+This will update the overview which is written to `https://docs.google.com/spreadsheets/d/1rIf3t2wcfYdE8rgxDhYOwr-NIGTIzWpAfrlFeuiD9qE/edit#gid=2054734368`
 
 The main class is in `trackerBuild.py` and works approximately like so:
 

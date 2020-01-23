@@ -49,6 +49,7 @@ class atlas_status:
         self.idf_path_by_accession = latest_idf_sdrf[0]
         self.sdrf_path_by_accession = latest_idf_sdrf[1]
         self.path_by_accession = latest_idf_sdrf[2]
+        self.analysis_path_by_accession = latest_idf_sdrf[3]
 
     def get_status_types(self):
         status_types = set()
@@ -141,7 +142,7 @@ class atlas_status:
         def list_converter(file_list):
             files_found = {}
             for filepath in file_list:
-                accession = filepath.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', '')
+                accession = filepath.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', '').replace('-analysis-methods.tsv', '')
                 if accession in files_found:
                     files_found[accession].append(filepath)
                 else:
@@ -174,10 +175,15 @@ class atlas_status:
 
         idf_list_ = []
         sdrf_list_ = []
+
+        # analysis files parsed for metadata on how the analysis was done.
+        analysis_list = []
+
         for path, metadata in tqdm(self.sources_config.items(), unit='Paths in config'):
             print('IDF/SDRF path finder exploring {}'.format(path))
             idf_list_ += glob.glob(path + '/*/*.idf.txt') + glob.glob(path + '/*.idf.txt')
             sdrf_list_ += glob.glob(path + '/*/*.sdrf.txt') + glob.glob(path + '/*.sdrf.txt')
+            analysis_list += glob.glob(path + '/*/*analysis-methods.tsv') + glob.glob(path + '/*-analysis-methods.tsv')
 
         idf_list = [x for x in idf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', ''))]
         sdrf_list = [x for x in sdrf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', ''))]
@@ -185,6 +191,7 @@ class atlas_status:
         ranked_paths = get_ranked_paths()
         idf_path_by_accession = get_latter_ranked_path(list_converter(idf_list), ranked_paths)
         sdrf_path_by_accession = get_latter_ranked_path(list_converter(sdrf_list), ranked_paths)
+        analysis_path_by_accession = get_latter_ranked_path(list_converter(analysis_list), ranked_paths)
 
         # get the path where the accession was initially found at
         paths_by_accession = defaultdict(list)
@@ -192,4 +199,4 @@ class atlas_status:
             paths_by_accession[v.get('accession')].append(k[0])
         path_by_accession = get_latter_ranked_path(paths_by_accession, ranked_paths)
 
-        return idf_path_by_accession, sdrf_path_by_accession, path_by_accession
+        return idf_path_by_accession, sdrf_path_by_accession, path_by_accession, analysis_path_by_accession
