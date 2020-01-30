@@ -12,6 +12,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread_dataframe
 from datetime import datetime
 from googleapiclient import discovery
+import time
 
 def google_sheet_output(google_client_secret, output_dfs, spreadsheetname):
 
@@ -31,8 +32,20 @@ def google_sheet_output(google_client_secret, output_dfs, spreadsheetname):
 
         spreadsheet.add_worksheet(title=sheetname, rows=df.shape[0] + 1, cols=df.shape[1] + 1)
         # fill new empty worksheet
-        gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True, include_column_header=True)
-        post_sheet_formatting(credentials=creds, spreadsheet_id=spreadsheet.id, sheetId=spreadsheet.worksheet(sheetname).id)
+        try:
+            gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True, include_column_header=True)
+        # except gspread.exceptions.APIError: # I've seen this error and socket timeout error. Catching all for now.
+        except:
+            time.sleep(60)
+            print('Hit Google API error. Waiting 1 min then retrying...')
+            try:
+                gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True,include_column_header=True)
+            except:
+                time.sleep(600)
+                print('Hit Google API error. Waiting 10 min then retrying...')
+                gspread_dataframe.set_with_dataframe(spreadsheet.worksheet(sheetname), df, include_index=True,include_column_header=True)
+
+        post_sheet_formatting(credentials=creds, spreadsheet_id=spreadsheet.id,sheetId=spreadsheet.worksheet(sheetname).id)
 
     # remove old worksheets
     for sheet in spreadsheet.worksheets():
