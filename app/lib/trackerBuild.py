@@ -20,6 +20,7 @@ from app.lib.googleAPI import google_sheet_output
 from datetime import datetime
 import pandas as pd
 from collections import OrderedDict
+from collections import defaultdict
 import pickle
 import json
 import os
@@ -28,14 +29,14 @@ import requests
 import re
 
 class tracker_build:
-    def __init__(self, sources_config, db_config, supported_species, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
+    def __init__(self, sources_config, db_config, atlas_supported_species, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
 
         # configuration
         self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
         self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev', 'published']
         self.google_client_secret = google_client_secret
         self.spreadsheetname = spreadsheetname
-        self.supported_species = self.species_parser(supported_species)
+        self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
 
         # crawling
         self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
@@ -49,7 +50,7 @@ class tracker_build:
 
         self.pickle_out()
 
-    def species_parser(self, supported_species):
+    def get_atlas_species(self, supported_species):
         '''
         Supported species taken from list fo files in git hub here https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs
         For each git directory find the api url and pass to this function e.g. https://api.github.com/repos/ebi-gene-expression-group/atlas-annotations/git/trees/763aa3ef034348daa0e189d0c52c17edc9a97afc
@@ -65,9 +66,22 @@ class tracker_build:
             assert response.status_code == 200, 'Bad response {} for URL {}'.format(response.status_code, url)
             data = response.json()
             for doc in data.get('tree'):
-                species_name = re.sub('[^A-Za-z0-9]+', ' ', doc.get('path')) # sanitise special chars
+                species_name = re.sub('[^A-Za-z0-9]+', ' ', doc.get('path')).lower() # sanitise special chars
                 species_list.append(species_name)
         return species_list
+
+    def get_species_status(self):
+        '''
+        Assigns status to organisms based on supoort in Atlas and presence in ENSEMBLE (latter feature in dev)
+        '''
+        species_status = defaultdict(str)
+        for accession, organism in self.file_metadata.extracted_metadata.get('Organism').items():
+            if organism.lower() in self.atlas_supported_species:
+                species_status[accession] = 'Supported in Atlas'
+            else:
+                species_status[accession] = 'Not supported'
+        return species_status
+
 
     def df_compiler(self):
         '''
@@ -87,6 +101,7 @@ class tracker_build:
                        "Experiment Type": self.file_metadata.extracted_metadata.get('Experiment Type'),
                        "Analysis Type": self.file_metadata.extracted_metadata.get('Analysis Type'),
                        "Organism": self.file_metadata.extracted_metadata.get('Organism'),
+                       "Organism Status": self.get_species_status(),
                        "Single-cell Experiment Type": self.file_metadata.extracted_metadata.get('Single-cell Experiment Type'),
                        "Secondary Accessions": self.file_metadata.extracted_metadata.get('Secondary Accession'),
                        "IDF": self.status_crawl.idf_path_by_accession,
