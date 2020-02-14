@@ -24,15 +24,17 @@ import pickle
 import json
 import os
 import sys
+import requests
 
 class tracker_build:
-    def __init__(self, sources_config, db_config, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
+    def __init__(self, sources_config, db_config, supported_species, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
 
         # configuration
         self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
         self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev', 'published']
         self.google_client_secret = google_client_secret
         self.spreadsheetname = spreadsheetname
+        self.supported_species = self.species_parser(supported_species)
 
         # crawling
         self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
@@ -45,6 +47,25 @@ class tracker_build:
             google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
 
         self.pickle_out()
+
+    def species_parser(self, supported_species):
+        '''
+        Supported species taken from list fo files in git hub here https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs
+        For each git directory find the api url and pass to this function e.g. https://api.github.com/repos/ebi-gene-expression-group/atlas-annotations/git/trees/763aa3ef034348daa0e189d0c52c17edc9a97afc
+        Pass as many dir as you need with -q arg.
+        These directories contain files who's name are the species we support.
+        This function just returns file names as a list.
+        These are the species names that Atlas supports.
+        '''
+
+        species_list = []
+        for url in supported_species:
+            response = requests.request("GET", url)
+            assert response.status_code == 200, 'Bad response {} for URL {}'.format(response.status_code, url)
+            data = response.json()
+            for doc in data.get('tree'):
+                species_list.append(doc.get('path'))
+        return species_list
 
     def df_compiler(self):
         '''

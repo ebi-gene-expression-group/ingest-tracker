@@ -34,10 +34,14 @@ def parameters():
     parser.add_argument("-n", "--sheetname", dest="sheetname",
                         help="Name of output sheet.",
                         required=False, default='DEV Ingest Status')
+    parser.add_argument("-q" "--supported_species", dest='supported_species', nargs='+',
+                        help='Species list. Which genome references are being processed by irap_single_lib',
+                        required=True)
     return parser.parse_args()
 
 
 if __name__ == '__main__':
 
     args = parameters()
-    trackerBuild.tracker_build(args.sources_config, args.db_config, args.google_client_secret, args.google_output, args.sheetname)
+    print(args.supported_species)
+    trackerBuild.tracker_build(args.sources_config, args.db_config, args.supported_species, args.google_client_secret, args.google_output, args.sheetname)
