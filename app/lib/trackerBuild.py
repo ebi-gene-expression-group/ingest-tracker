@@ -25,6 +25,7 @@ import json
 import os
 import sys
 import requests
+import re
 
 class tracker_build:
     def __init__(self, sources_config, db_config, supported_species, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
@@ -64,7 +65,8 @@ class tracker_build:
             assert response.status_code == 200, 'Bad response {} for URL {}'.format(response.status_code, url)
             data = response.json()
             for doc in data.get('tree'):
-                species_list.append(doc.get('path'))
+                species_name = re.sub('[^A-Za-z0-9]+', ' ', doc.get('path')) # sanitise special chars
+                species_list.append(species_name)
         return species_list
 
     def df_compiler(self):
