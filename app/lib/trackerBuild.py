@@ -150,7 +150,9 @@ class tracker_build:
                                                                'Experiment Type',
                                                                'Single-cell Experiment Type'
                                                                ], axis=1) # remove columns from specific df
-        output_dfs["Track Ingested Experiments"] = internal_df
+        output_dfs["Track Ingested Experiments"] = internal_df.drop[
+                                                                    'Organism Status'
+                                                                            ]
 
         # remove these columns from all dfs
         remove_cols = ['min_status', 'max_status', 'min_order_index']
