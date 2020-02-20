@@ -27,6 +27,8 @@ import os
 import sys
 import requests
 import re
+import math
+import numpy as np
 
 class tracker_build:
     def __init__(self, sources_config, db_config, atlas_supported_species, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
@@ -82,6 +84,63 @@ class tracker_build:
                 species_status[accession] = 'Not supported'
         return species_status
 
+    def get_already_ingested_warn(self, in_df, ex_df):
+        '''
+        This code flags the following three conditions:
+        1. Check if any secondary accessions in the internal sheet are in the secondary accessions external sheet
+        2. Check if any primary accessions in the internal sheet are in the secondary accessions external sheet (CURD usacase)
+        3. If primary GEO accessions in the discovery are converted to GSE. Do these match any secondary accessions in the internal sheet?
+        '''
+
+        already_ingested_warning = {}
+
+
+        def reverse_dictionary(d):
+            rev_d = defaultdict(list)
+            for key, value_list in d.items():
+                assert type(value_list) == list or math.isnan(value_list), 'This method only works with list dict types. Value: "{}" is type "{}"'.format(value_list, type(value_list))
+                if type(value_list) == list:
+                    for v in value_list:
+                        rev_d[v].append(key)
+            return rev_d
+
+        in_2nd_acc = in_df['Secondary Accessions'].to_dict()
+        ex_2nd_acc = ex_df['Secondary Accessions'].to_dict()
+
+        reverse_in_2nd_acc = reverse_dictionary(in_2nd_acc) # reverse dict used for lookup
+
+        for accession, secondary_accession in ex_2nd_acc.items():
+            if isinstance(secondary_accession, list) and isinstance(accession, str):
+                assert all(isinstance(item, str) for item in secondary_accession), 'Wrong datatype in secondary accession list: {}'.format(str(secondary_accession))
+
+                # Special treatment for GEO
+                geo_prefix = 'E-GEOD-' # warning hard coded
+                geo_replacement = 'GSE' # warning hard coded
+                if accession.startswith(geo_prefix):
+                    all_accessions = [accession] + secondary_accession + [accession.replace(geo_prefix, geo_replacement)]
+                else:
+                    all_accessions = [accession] + secondary_accession
+
+                for a in all_accessions:
+                    hits = []
+                    if a in reverse_in_2nd_acc:
+                        hits += reverse_in_2nd_acc.get(a)
+                    if hits:
+                        m = 'WARNING Already Ingested. See {}'.format(' & '.join(hits))
+                        already_ingested_warning[accession] = m
+        # add new dict to external df
+        ex_df['Already Ingested'] = pd.Series(already_ingested_warning)
+        return ex_df
+
+    def formatting(self, col):
+        '''
+        Rules for each cell in dataframe applied afterwards
+        This is slightly slower than pre deciding but allows formatting to be applied generally.
+        '''
+        for k, v in col.items():
+            if isinstance(v, list):
+                col.loc[k] = ' & '.join(v)
+
 
     def df_compiler(self):
         '''
@@ -133,8 +192,11 @@ class tracker_build:
 
         nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1) # add index column
 
-        external_df = nan_filtered_df[(nan_filtered_df["min_order_index"] < 1)]  # filter out loading and lower (index based see status_type_order!)
+        external_df_ = nan_filtered_df[(nan_filtered_df["min_order_index"] < 1)]  # filter out loading and lower (index based see status_type_order!)
         internal_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 1)]  # filter out loading and lower (index based see status_type_order!)
+
+        # Add warn if already ingested. Internal vs external sheets.
+        external_df = self.get_already_ingested_warn(internal_df, external_df_)
 
         # order and collect dfs
         output_dfs = OrderedDict()
@@ -150,14 +212,18 @@ class tracker_build:
                                                                'Experiment Type',
                                                                'Single-cell Experiment Type'
                                                                ], axis=1) # remove columns from specific df
-        output_dfs["Track Ingested Experiments"] = internal_df.drop[
-                                                                    'Organism Status'
-                                                                            ]
+        output_dfs["Track Ingested Experiments"] = internal_df.drop(['Organism Status'], axis=1)
 
         # remove these columns from all dfs
         remove_cols = ['min_status', 'max_status', 'min_order_index']
         for name, df in output_dfs.items():
             output_dfs[name] = df.drop(remove_cols, axis=1)
+
+        # add value formatting function here e.g. list and none handling
+
+        for name, df in output_dfs.items():
+            df.apply(self.formatting)
+
 
         return output_dfs
 

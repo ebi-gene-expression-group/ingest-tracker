@@ -13,6 +13,7 @@ import re
 import os
 import json
 import collections
+import numpy as np
 import sys
 
 
@@ -66,6 +67,8 @@ class file_crawler:
                 return fileContent
 
         def idf_extract():
+            # extracts entire row as a list
+
             print('\nExtracting metadata from idf files...\n')
             query = {'Experiment Type': re.compile(r'Comment\[EAExperimentType\]|Comment \[EAExperimentType\]'),
                             'Curator': re.compile(r'Comment\[EACurator\]|Comment \[EACurator\]'),
@@ -83,7 +86,12 @@ class file_crawler:
                         for line in fileContent:
                             if re.match(p, line[0]):
                                 try:
-                                    v = line[1]
+                                    # take multiple rows if they are present.
+                                    result = line[1:]
+                                    if len(result) == 0:
+                                        v = np.nan
+                                    else:
+                                        v = result
                                 except IndexError:
                                     continue
                                 extracted_metadata[output_key].update({accession: v})
@@ -91,6 +99,8 @@ class file_crawler:
             return extracted_metadata
 
         def sdrf_extract():
+            # extracts 1st value form 1st row only
+
             print('\nExtracting metadata from sdrf files...\n')
             query = {
                 'Single-cell Experiment Type': re.compile(r'Comment\[library construction\]|Comment \[library construction\]'),
