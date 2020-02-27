@@ -104,7 +104,7 @@ class file_crawler:
             print('\nExtracting metadata from sdrf files...\n')
             query = {
                 'Single-cell Experiment Type': re.compile(r'Comment\[library construction\]|Comment \[library construction\]'),
-                'Organism': re.compile(r'Characteristics\[organism\]|Characteristics \[organism\]|Characteristics \[Organism\]')
+                'Organism': re.compile(r'Characteristics\[organism\]|Characteristics \[organism\]|Characteristics \[Organism\]|Characteristics\[Organism\]')
                 }
 
             extracted_metadata = collections.defaultdict(dict)
