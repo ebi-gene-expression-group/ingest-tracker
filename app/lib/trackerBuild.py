@@ -44,6 +44,7 @@ class tracker_build:
         self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
         self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config) # in file crawling on nfs
         self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata and urls
+
         # output
         if google_output:
             output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output

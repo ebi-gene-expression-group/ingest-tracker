@@ -142,7 +142,7 @@ class atlas_status:
         def list_converter(file_list):
             files_found = {}
             for filepath in file_list:
-                accession = filepath.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', '').replace('-analysis-methods.tsv', '')
+                accession = filepath.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', '').replace('-idf.txt', '').replace('-sdrf.txt', '').replace('-analysis-methods.tsv', '')
                 if accession in files_found:
                     files_found[accession].append(filepath)
                 else:
@@ -181,12 +181,12 @@ class atlas_status:
 
         for path, metadata in tqdm(self.sources_config.items(), unit='Paths in config'):
             print('IDF/SDRF path finder exploring {}'.format(path))
-            idf_list_ += glob.glob(path + '/*/*.idf.txt') + glob.glob(path + '/*.idf.txt')
-            sdrf_list_ += glob.glob(path + '/*/*.sdrf.txt') + glob.glob(path + '/*.sdrf.txt')
+            idf_list_ += glob.glob(path + '/*/*idf.txt') + glob.glob(path + '/*idf.txt')
+            sdrf_list_ += glob.glob(path + '/*/*sdrf.txt') + glob.glob(path + '/*sdrf.txt')
             analysis_list += glob.glob(path + '/*/*analysis-methods.tsv') + glob.glob(path + '/*-analysis-methods.tsv')
 
-        idf_list = [x for x in idf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', ''))]
-        sdrf_list = [x for x in sdrf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', ''))]
+        idf_list = [x for x in idf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', '').replace('-idf.txt', '').replace('-sdrf.txt', ''))]
+        sdrf_list = [x for x in sdrf_list_ if self.accession_regex.match(x.split('/')[-1].replace('.idf.txt', '').replace('.sdrf.txt', '').replace('-idf.txt', '').replace('-sdrf.txt', ''))]
 
         ranked_paths = get_ranked_paths()
         idf_path_by_accession = get_latter_ranked_path(list_converter(idf_list), ranked_paths)
