@@ -126,7 +126,38 @@ def post_sheet_formatting(credentials, spreadsheet_id, sheetId):
         }
     })
 
+    # highlight rows already ingested
 
+    # starts with 'WARNING' in column 'Already Ingested'
+
+    requests.append({
+        "addConditionalFormatRule": {
+          "rule": {
+            "ranges": [
+              {
+                "sheetId": sheetId,
+                "startRowIndex": 1
+              }
+            ],
+            "booleanRule": {
+              "condition": {
+                "type": "TEXT_CONTAINS",
+                "values": [
+                  {
+                    "userEnteredValue": "WARNING*"
+                  }
+                ]
+              },
+              "format": {
+                "backgroundColor": {
+                  "red": 1.0
+                }
+              }
+            }
+          },
+          "index": 1
+        }
+    })
 
     # wrapStrategy clip
 
