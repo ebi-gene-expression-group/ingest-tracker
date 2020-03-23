@@ -38,7 +38,7 @@ class tracker_build:
 
         tries = 4
         initial_delay = 5
-        backoff_rate = 5
+        backoff_rate = 10
 
         for n in range(tries):
             if n != 0:
