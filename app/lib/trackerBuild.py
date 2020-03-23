@@ -65,11 +65,15 @@ class tracker_build:
                     # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
                     google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
 
-                self.pickle_out()
+                # self.pickle_out()
                 break
-
+            except (KeyboardInterrupt, SystemExit):
+                sys.exit()
             except:
                 print('Attempt {} FAILED'.format(n + 1))
+                print("Unexpected error:", sys.exc_info()[0])
+                if n == tries:
+                    raise
                 continue
 
 
@@ -213,8 +217,8 @@ class tracker_build:
 
         nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1) # add index column
 
-        external_df_ = nan_filtered_df[(nan_filtered_df["min_order_index"] < 1)]  # filter out loading and lower (index based see status_type_order!)
-        internal_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 1)]  # filter out loading and lower (index based see status_type_order!)
+        external_df_ = nan_filtered_df[(nan_filtered_df["min_order_index"] < 1)].rename_axis(index='Accession')  # filter out loading and lower (index based see status_type_order!)
+        internal_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 1)].rename_axis(index='Accession')  # filter out loading and lower (index based see status_type_order!)
 
         # Add warn if already ingested. Internal vs external sheets.
         external_df = self.get_already_ingested_warn(internal_df, external_df_)

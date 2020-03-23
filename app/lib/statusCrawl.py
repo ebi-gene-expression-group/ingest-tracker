@@ -16,7 +16,6 @@ from collections import defaultdict
 from tqdm import tqdm
 import glob
 import requests
-import sys
 
 class atlas_status:
     def __init__(self, sources_config, status_type_order):
