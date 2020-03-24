@@ -80,7 +80,8 @@ class db_crawler:
         db_accession_list = df.index.to_list()
         crawler_accessions_list = list(self.status_crawl.accession_final_status.keys())
         diff = [x for x in db_accession_list if x not in crawler_accessions_list]
-        print('WARNING: {} accessions were found in production DB but were not picked up by crawler\n {}\nThese have not been added to the tracker.'.format(len(diff), str(diff)))
+        if len(diff) > 0:
+            print('WARNING: {} accessions were found in production DB but were not picked up by crawler\n {}\nThese have not been added to the tracker.'.format(len(diff), str(diff)))
 
     def get_accession_urls(self):
         '''
