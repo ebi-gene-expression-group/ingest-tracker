@@ -28,12 +28,9 @@ def parameters():
     parser.add_argument("-g", "--google_client_secret", dest="google_client_secret",
                         help="Connection info for output Google Sheet. Private doc available locally.",
                         required=True)
-    parser.add_argument("-o", "--google_output", dest="google_output",
-                        help="Connection info for output Google Sheet. Private doc available locally.",
-                        required=False, default=True)
     parser.add_argument("-n", "--sheetname", dest="sheetname",
-                        help="Name of output sheet.",
-                        required=False, default='DEV Ingest Status')
+                        help="Name of output sheet. Must be in same loc as defined in Google Client Secret",
+                        required=True, default='DEV Ingest Status')
     parser.add_argument("-q" "--atlas_supported_species", dest='atlas_supported_species', nargs='+',
                         help='Species list. Which genome references are being processed by irap_single_lib',
                         required=True)
@@ -43,4 +40,4 @@ def parameters():
 if __name__ == '__main__':
 
     args = parameters()
-    trackerBuild.tracker_build(args.sources_config, args.db_config, args.atlas_supported_species, args.google_client_secret, args.google_output, args.sheetname)
+    trackerBuild.tracker_build(args.sources_config, args.db_config, args.atlas_supported_species, args.sheetname, args.google_client_secret)

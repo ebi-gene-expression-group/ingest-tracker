@@ -32,49 +32,65 @@ import numpy as np
 import time
 
 class tracker_build:
-    def __init__(self, sources_config, db_config, atlas_supported_species, google_client_secret=None, google_output=True,spreadsheetname="DEV Ingest Status"):
+    def __init__(self, sources_config, db_config, atlas_supported_species, spreadsheetname, google_client_secret=None, ):
+        self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
+        self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev',
+                                  'published']
+        self.google_client_secret = google_client_secret
+        self.spreadsheetname = spreadsheetname
+        self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
 
-        # robust tries with backoff
+        # crawling
+        self.status_crawl = statusCrawl.atlas_status(sources_config,
+                                                     self.status_type_order)  # accession search on nfs, glob func
+        self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config)  # in file crawling on nfs
+        self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl)  # db lookups for metadata and urls
 
-        tries = 4
-        initial_delay = 5
-        backoff_rate = 10
+        # output
+        output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
+        # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+        google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
 
-        for n in range(tries):
-            if n != 0:
-                print('Retry no. {}/{}'.format(n, tries))
-                print('Waiting {} sec'.format(initial_delay))
-                time.sleep(initial_delay)
-                initial_delay = initial_delay * backoff_rate
-            try:
-                # configuration
-                self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
-                self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev', 'published']
-                self.google_client_secret = google_client_secret
-                self.spreadsheetname = spreadsheetname
-                self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
-
-                # crawling
-                self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
-                self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config) # in file crawling on nfs
-                self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata and urls
-
-                # output
-                if google_output:
-                    output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
-                    # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
-                    google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
-
-                # self.pickle_out()
-                break
-            except (KeyboardInterrupt, SystemExit):
-                sys.exit()
-            except:
-                print('Attempt {} FAILED'.format(n + 1))
-                print("Unexpected error:", sys.exc_info()[0])
-                if n == tries:
-                    raise
-                continue
+        # # robust tries with backoff
+        #
+        # tries = 4
+        # initial_delay = 5
+        # backoff_rate = 10
+        #
+        # for n in range(tries):
+        #     if n != 0:
+        #         print('Retry no. {}/{}'.format(n, tries))
+        #         print('Waiting {} sec'.format(initial_delay))
+        #         time.sleep(initial_delay)
+        #         initial_delay = initial_delay * backoff_rate
+        #     try:
+        #         # configuration
+        #         self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
+        #         self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev', 'published']
+        #         self.google_client_secret = google_client_secret
+        #         self.spreadsheetname = spreadsheetname
+        #         self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
+        #
+        #         # crawling
+        #         self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
+        #         self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config) # in file crawling on nfs
+        #         self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata and urls
+        #
+        #         # output
+        #         output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
+        #         # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+        #         google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
+        #
+        #         # self.pickle_out()
+        #         break
+        #     except (KeyboardInterrupt, SystemExit):
+        #         sys.exit()
+        #     except:
+        #         print('Attempt {} FAILED'.format(n + 1))
+        #         print("Unexpected error:", sys.exc_info()[0])
+        #         if n == tries:
+        #             raise
+        #         continue
 
 
     def get_atlas_species(self, supported_species):
