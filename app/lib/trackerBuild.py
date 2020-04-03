@@ -34,67 +34,46 @@ import time
 class tracker_build:
     def __init__(self, sources_config, db_config, atlas_supported_species, spreadsheetname, google_client_secret=None, ):
 
-        # # robust tries with backoff
-        #
-        # tries = 4
-        # initial_delay = 5
-        # backoff_rate = 10
-        #
-        # for n in range(tries):
-        #     if n != 0:
-        #         print('Retry no. {}/{}'.format(n, tries))
-        #         print('Waiting {} sec'.format(initial_delay))
-        #         time.sleep(initial_delay)
-        #         initial_delay = initial_delay * backoff_rate
-        #     try:
-        #         # configuration
-        #         self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
-        #         self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev', 'published']
-        #         self.google_client_secret = google_client_secret
-        #         self.spreadsheetname = spreadsheetname
-        #         self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
-        #
-        #         # crawling
-        #         self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
-        #         self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config) # in file crawling on nfs
-        #         self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata and urls
-        #
-        #         # output
-        #         output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
-        #         # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
-        #         google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
-        #
-        #         # self.pickle_out()
-        #         break
-        #     except (KeyboardInterrupt, SystemExit):
-        #         sys.exit()
-        #     except:
-        #         print('Attempt {} FAILED'.format(n + 1))
-        #         print("Unexpected error:", sys.exc_info()[0])
-        #         if n == tries:
-        #             raise RuntimeError('Hit {} max retries. See errors above'.format(tries))
-        #         continue
+        # robust tries with backoff
 
-        # configuration
-        self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
-        self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev',
-                                  'published']
-        self.google_client_secret = google_client_secret
-        self.spreadsheetname = spreadsheetname
-        self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
+        tries = 4
+        initial_delay = 5
+        backoff_rate = 10
 
-        # crawling
-        self.status_crawl = statusCrawl.atlas_status(sources_config,
-                                                     self.status_type_order)  # accession search on nfs, glob func
-        self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config)  # in file crawling on nfs
-        self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl)  # db lookups for metadata and urls
+        for n in range(tries):
+            if n != 0:
+                print('Retry no. {}/{}'.format(n, tries))
+                print('Waiting {} sec'.format(initial_delay))
+                time.sleep(initial_delay)
+                initial_delay = initial_delay * backoff_rate
+            try:
+                # configuration
+                self.timestamp = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
+                self.status_type_order = ['external', 'incoming', 'loading', 'analysing', 'processed', 'published_dev', 'published']
+                self.google_client_secret = google_client_secret
+                self.spreadsheetname = spreadsheetname
+                self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
 
-        # output
-        output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
-        # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
-        google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
+                # crawling
+                self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
+                self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config) # in file crawling on nfs
+                self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata and urls
 
-        # self.pickle_out()
+                # output
+                output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
+                # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+                google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
+
+                # self.pickle_out()
+                break
+            except (KeyboardInterrupt, SystemExit):
+                sys.exit()
+            except:
+                print('Attempt {} FAILED'.format(n + 1))
+                print("Unexpected error:", sys.exc_info()[0])
+                if n == tries:
+                    raise RuntimeError('Hit {} max retries. See errors above'.format(tries))
+                continue
 
 
     def get_atlas_species(self, supported_species):
@@ -199,6 +178,7 @@ class tracker_build:
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
 
         input_dicts = {"Status": self.status_crawl.accession_final_status,
+                       "Tech Type": self.status_crawl.tech,
                        "Web Link": self.db_crawl.accession_urls,
                        "Discovery Location": self.status_crawl.path_by_accession,
                        "Investigation Title": self.file_metadata.extracted_metadata.get('Investigation Title'),
@@ -255,7 +235,8 @@ class tracker_build:
                                                                'TQSVersion',
                                                                'Curator',
                                                                'Experiment Type',
-                                                               'Single-cell Experiment Type'
+                                                               'Single-cell Experiment Type',
+                                                               'Tech Type'
                                                                ], axis=1) # remove columns from specific df
         output_dfs["Track Ingested Experiments"] = internal_df.drop(['Organism Status'], axis=1)
 

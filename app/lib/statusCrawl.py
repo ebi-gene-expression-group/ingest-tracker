@@ -50,6 +50,16 @@ class atlas_status:
         self.path_by_accession = latest_idf_sdrf[2]
         self.analysis_path_by_accession = latest_idf_sdrf[3]
 
+        self.tech = self.get_tech()
+
+    def get_tech(self):
+        tech_dict = {}
+        for accession, path in self.path_by_accession.items():
+            tech = self.sources_config.get(path).get('tech')
+            tech_dict[accession] = sorted(tech)
+        return tech_dict
+
+
     def get_status_types(self):
         status_types = set()
         for x, y in self.sources_config.items():
