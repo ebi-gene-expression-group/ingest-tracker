@@ -9,7 +9,7 @@ __date__ = "08/11/2019"
 
 import mysql.connector
 from tqdm import tqdm
-import psycopg2
+import psycopg
 import json
 import pandas as pd
 import sys
@@ -40,7 +40,7 @@ class db_crawler:
                                          port=connection_details['port'],
                                          database=name)
         elif connection_details['dbtype'] == 'postgres':
-            db = psycopg2.connect(host=connection_details['host'],
+            db = psycopg.connect(host=connection_details['host'],
                                   user=connection_details['user'],
                                   password=connection_details['password'],
                                   port=connection_details['port'],

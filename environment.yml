@@ -23,7 +23,7 @@ dependencies:
     - mysql-connector
     - oauth2client
     - pandas
-    - psycopg2
+    - psycopg[binary]
     - pyasn1
     - pyasn1-modules
     - python-dateutil
