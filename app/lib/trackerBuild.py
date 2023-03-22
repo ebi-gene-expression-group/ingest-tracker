@@ -9,6 +9,7 @@ assembles tracker info in dataframes
 exports to google sheets
 exports to pickle dump
 '''
+
 __author__ = "hewgreen"
 __license__ = "Apache 2.0"
 __date__ = "08/11/2019"
@@ -61,7 +62,11 @@ class tracker_build:
 
                 # output
                 output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
-                # exported to https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
+
+                # automatically generate Expression Atlas config files for atlas-eligible bulk RNA-seq studies
+                output_dfs["Discover Experiments"] = self.auto_config(output_dfs["Discover Experiments"])
+
+                # exported to dev - https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
                 google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
 
                 # self.pickle_out()
@@ -74,7 +79,6 @@ class tracker_build:
                 if n == tries:
                     raise RuntimeError('Hit {} max retries. See errors above'.format(tries))
                 continue
-
 
     def get_atlas_species(self, supported_species):
         '''
@@ -118,7 +122,6 @@ class tracker_build:
 
         already_ingested_warning = {}
 
-
         def reverse_dictionary(d):
             rev_d = defaultdict(list)
             for key, value_list in d.items():
@@ -152,6 +155,7 @@ class tracker_build:
                     if hits:
                         m = 'WARNING Already Ingested. See {}'.format(' & '.join(hits))
                         already_ingested_warning[accession] = m
+
         # add new dict to external df
         ex_df['Already Ingested'] = pd.Series(already_ingested_warning)
         return ex_df
@@ -161,10 +165,10 @@ class tracker_build:
         Rules for each cell in dataframe applied afterwards
         This is slightly slower than pre deciding but allows formatting to be applied generally.
         '''
+
         for k, v in col.items():
             if isinstance(v, list):
                 col.loc[k] = ' & '.join(v)
-
 
     def df_compiler(self):
         '''
@@ -172,7 +176,6 @@ class tracker_build:
         Add more dict to input_dict to add mor info to tracker.
         You may want to adjust column auto column widths in googleAPI.py
         '''
-
 
         print('Combining results into summary dataframe {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -246,12 +249,42 @@ class tracker_build:
             output_dfs[name] = df.drop(remove_cols, axis=1)
 
         # add value formatting function here e.g. list and none handling
-
         for name, df in output_dfs.items():
             df.apply(self.formatting)
 
-
         return output_dfs
+
+    def auto_config(df):
+        df["AutoConfig Location"] = ""
+
+        fungi_list = ['Aspergillus fumigatus', 'Aspergillus nidulans', 'Saccharomyces cerevisiae',
+                      'Schizosaccharomyces pombe', 'Yarrowia lipolytica']
+
+        for i, row in df.iterrows():
+            if row["Atlas Eligibility"] == "PASS" \
+                    and (row["Organism Status"] == "Supported in Atlas" and row["Organism"] not in fungi_list) \
+                    and ("E-MTAB" in row["Accession"] or "E-GEOD" in row["Accession"]) \
+                    and ("seq" in row["Analysis Type"] and "RNA" in row["Analysis Type"] and "single" not in row["Analysis Type"]):
+                exp = df.loc[i, "Accession"]
+                exp_path = "/nfs/production/irene/ma/atlas-prod/conan_incoming/" + exp
+
+                # if exp folder not existed in conan_incoming, create the folder and generate config files
+                if not os.path.exists(exp_path):
+                    os.makedirs(exp_path)
+
+                    # try differential by default
+                    exitcode = os.system(
+                        'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t differential -p ' + (
+                            "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
+
+                    if exitcode != 0:  # baseline
+                        os.system(
+                            'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t baseline -p ' + (
+                                "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
+
+                    df.at[i, "AutoConfig Location"] = exp_path
+
+        return df
 
     def pickle_out(self):
         if not os.path.exists('logs'):
