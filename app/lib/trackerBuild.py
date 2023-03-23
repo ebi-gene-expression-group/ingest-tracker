@@ -41,7 +41,7 @@ class tracker_build:
         initial_delay = 5
         backoff_rate = 10
 
-        for n in range(tries):
+        for n in range(tries + 1):
             if n != 0:
                 print('Retry no. {}/{}'.format(n, tries))
                 print('Waiting {} sec'.format(initial_delay))
