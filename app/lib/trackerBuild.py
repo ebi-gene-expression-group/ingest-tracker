@@ -1,4 +1,4 @@
-'''
+"""
 Main controller script for tracker module
 Builds tracker output for google sheet using lots of modules in package
 
@@ -8,7 +8,7 @@ Crawls dbs for metadata
 assembles tracker info in dataframes
 exports to google sheets
 exports to pickle dump
-'''
+"""
 
 __author__ = "hewgreen"
 __license__ = "Apache 2.0"
@@ -31,6 +31,8 @@ import re
 import math
 import numpy as np
 import time
+import psycopg
+
 
 class tracker_build:
     def __init__(self, sources_config, db_config, atlas_supported_species, spreadsheetname, google_client_secret=None, ):
@@ -56,9 +58,9 @@ class tracker_build:
                 self.atlas_supported_species = self.get_atlas_species(atlas_supported_species)
 
                 # crawling
-                self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order) # accession search on nfs, glob func
-                self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config) # in file crawling on nfs
-                self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl) # db lookups for metadata and urls
+                self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order)  # accession search on nfs, glob func
+                self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config)  # in file crawling on nfs
+                self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl)  # db lookups for metadata and urls
 
                 # output
                 output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
@@ -84,14 +86,14 @@ class tracker_build:
                 continue
 
     def get_atlas_species(self, supported_species):
-        '''
+        """
         Supported species taken from list fo files in git hub here https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs
         For each git directory find the api url and pass to this function e.g. https://api.github.com/repos/ebi-gene-expression-group/atlas-annotations/git/trees/763aa3ef034348daa0e189d0c52c17edc9a97afc
         Pass as many dir as you need with -q arg.
         These directories contain files who's name are the species we support.
         This function just returns file names as a list.
         These are the species names that Atlas supports.
-        '''
+        """
 
         species_list = []
         for url in supported_species:
@@ -99,14 +101,14 @@ class tracker_build:
             assert response.status_code == 200, 'Bad response {} for URL {}'.format(response.status_code, url)
             data = response.json()
             for doc in data.get('tree'):
-                species_name = re.sub('[^A-Za-z0-9]+', ' ', doc.get('path')).lower() # sanitise special chars
+                species_name = re.sub('[^A-Za-z0-9]+', ' ', doc.get('path')).lower()  # sanitise special chars
                 species_list.append(species_name)
         return species_list
 
     def get_species_status(self):
-        '''
+        """
         Assigns status to organisms based on supoort in Atlas and presence in ENSEMBLE (latter feature in dev)
-        '''
+        """
         species_status = defaultdict(str)
         for accession, organism in self.file_metadata.extracted_metadata.get('Organism').items():
             if organism.lower() in self.atlas_supported_species:
@@ -116,12 +118,12 @@ class tracker_build:
         return species_status
 
     def get_already_ingested_warn(self, in_df, ex_df):
-        '''
+        """
         This code flags the following three conditions:
         1. Check if any secondary accessions in the internal sheet are in the secondary accessions external sheet
         2. Check if any primary accessions in the internal sheet are in the secondary accessions external sheet (CURD usacase)
         3. If primary GEO accessions in the discovery are converted to GSE. Do these match any secondary accessions in the internal sheet?
-        '''
+        """
 
         already_ingested_warning = {}
 
@@ -137,15 +139,15 @@ class tracker_build:
         in_2nd_acc = in_df['Secondary Accessions'].to_dict()
         ex_2nd_acc = ex_df['Secondary Accessions'].to_dict()
 
-        reverse_in_2nd_acc = reverse_dictionary(in_2nd_acc) # reverse dict used for lookup
+        reverse_in_2nd_acc = reverse_dictionary(in_2nd_acc)  # reverse dict used for lookup
 
         for accession, secondary_accession in ex_2nd_acc.items():
             if isinstance(secondary_accession, list) and isinstance(accession, str):
                 assert all(isinstance(item, str) for item in secondary_accession), 'Wrong datatype in secondary accession list: {}'.format(str(secondary_accession))
 
                 # Special treatment for GEO
-                geo_prefix = 'E-GEOD-' # warning hard coded
-                geo_replacement = 'GSE' # warning hard coded
+                geo_prefix = 'E-GEOD-'  # warning hard coded
+                geo_replacement = 'GSE'  # warning hard coded
                 if accession.startswith(geo_prefix):
                     all_accessions = [accession] + secondary_accession + [accession.replace(geo_prefix, geo_replacement)]
                 else:
@@ -164,21 +166,21 @@ class tracker_build:
         return ex_df
 
     def formatting(self, col):
-        '''
+        """
         Rules for each cell in dataframe applied afterwards
         This is slightly slower than pre deciding but allows formatting to be applied generally.
-        '''
+        """
 
         for k, v in col.items():
             if isinstance(v, list):
                 col.loc[k] = ' & '.join(v)
 
     def df_compiler(self):
-        '''
+        """
         Combines experiment accession keyed dictionaries.
         Add more dict to input_dict to add mor info to tracker.
         You may want to adjust column auto column widths in googleAPI.py
-        '''
+        """
 
         print('Combining results into summary dataframe {}'.format(
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
@@ -206,8 +208,8 @@ class tracker_build:
                        "TransQuantSoft": self.file_metadata.extracted_metadata.get('TransQuantSoft'),
                        "TQSVersion": self.file_metadata.extracted_metadata.get('TQSVersion'),
                        "Curator": {**self.file_metadata.curators_by_acession, **self.file_metadata.extracted_metadata.get('Curator')},
-                       "min_status": self.status_crawl.accession_min_status, # filter
-                       "max_status": self.status_crawl.accession_min_status # filter
+                       "min_status": self.status_crawl.accession_min_status,  # filter
+                       "max_status": self.status_crawl.accession_min_status  # filter
                        }
         input_data = {}
         for colname, input_dict in input_dicts.items():
@@ -219,9 +221,9 @@ class tracker_build:
 
         # df parsing/filtering
         full_df = pd.DataFrame.from_dict(input_data, orient='index')
-        nan_filtered_df = full_df[pd.notnull(full_df['Status'])] # filter if status is missing (ID found in DB not in config loc)
+        nan_filtered_df = full_df[pd.notnull(full_df['Status'])]  # filter if status is missing (ID found in DB not in config loc)
 
-        nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1) # add index column
+        nan_filtered_df['min_order_index'] = nan_filtered_df.apply(lambda x: self.status_type_order.index(x['min_status']), axis=1)  # add index column
 
         external_df_ = nan_filtered_df[(nan_filtered_df["min_order_index"] < 1)].rename_axis(index='Accession')  # filter out loading and lower (index based see status_type_order!)
         internal_df = nan_filtered_df[(nan_filtered_df["min_order_index"] >= 1)].rename_axis(index='Accession')  # filter out loading and lower (index based see status_type_order!)
@@ -243,7 +245,7 @@ class tracker_build:
                                                                'Experiment Type',
                                                                'Single-cell Experiment Type',
                                                                'Tech Type'
-                                                               ], axis=1) # remove columns from specific df
+                                                               ], axis=1)  # remove columns from specific df
         output_dfs["Track Ingested Experiments"] = internal_df.drop(['Organism Status'], axis=1)
 
         # remove these columns from all dfs
@@ -311,7 +313,6 @@ class tracker_build:
         }
         with open(filename, 'w') as filehandler:
             json.dump(data, filehandler)
-
 
 
 '''
