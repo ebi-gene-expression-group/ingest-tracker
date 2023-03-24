@@ -73,6 +73,9 @@ class tracker_build:
                 break
             except (KeyboardInterrupt, SystemExit):
                 sys.exit()
+            except psycopg.OperationalError:
+                print("Cannot connect to Atlas Production server. Please check if confidentials are up-to-date.\nRemember to update it in db_config.json on cluster if necessary.")
+                sys.exit()
             except:
                 print('Attempt {} FAILED'.format(n + 1))
                 print("Unexpected error:", sys.exc_info()[0])
