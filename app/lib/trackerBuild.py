@@ -260,6 +260,9 @@ class tracker_build:
     def auto_config(df):
         df["AutoConfig Location"] = ""
 
+        # bacterial studies are not ingested into Altas anymore, so not create auto configs for them.
+        # currently simply exclude bacteria in atlas-eligible species list at: https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs/ensembl
+        # todo: can implement a programmatic way
         fungi_list = ['Aspergillus fumigatus', 'Aspergillus nidulans', 'Saccharomyces cerevisiae',
                       'Schizosaccharomyces pombe', 'Yarrowia lipolytica']
 
