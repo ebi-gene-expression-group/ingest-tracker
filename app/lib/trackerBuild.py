@@ -32,13 +32,14 @@ import math
 import numpy as np
 import time
 import psycopg
+import logging
 
 
 class tracker_build:
-    def __init__(self, sources_config, db_config, atlas_supported_species, spreadsheetname, google_client_secret=None, ):
+    def __init__(self, sources_config, db_config, atlas_supported_species, spreadsheetname, google_client_secret=None):
+        logging.debug("Starting tracker build in debug model")
 
         # robust tries with backoff
-
         tries = 4
         initial_delay = 5
         backoff_rate = 10
@@ -59,24 +60,30 @@ class tracker_build:
 
                 # crawling
                 self.status_crawl = statusCrawl.atlas_status(sources_config, self.status_type_order)  # accession search on nfs, glob func
-                self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config)  # in file crawling on nfs
+                logging.info("Atlas status crawled")
                 self.db_crawl = dbCrawl.db_crawler(db_config, self.status_crawl)  # db lookups for metadata and urls
+                logging.info("Database crawled")
+                self.file_metadata = fileCrawler.file_crawler(self.status_crawl, sources_config)  # in file crawling on nfs
+                logging.info("File metadata crawled")
 
                 # output
                 output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
+                logging.info("Compile the output into a dataframe")
 
                 # automatically generate Expression Atlas config files for atlas-eligible bulk RNA-seq studies
-                output_dfs["Discover Experiments"] = self.auto_config(output_dfs["Discover Experiments"])
+                output_dfs["Discover Experiments"] = self.auto_config(df=output_dfs["Discover Experiments"])
+                logging.info("Auto create config for bulk atlas RNA-seq exps")
 
                 # exported to dev - https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
                 google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
+                logging.info("Save the output into google spreadsheets")
 
                 # self.pickle_out()
                 break
             except (KeyboardInterrupt, SystemExit):
                 sys.exit()
             except psycopg.OperationalError:
-                print('Problem related to Atlas Production server. Please check if confidentials are up-to-date.\nRemember to update it in db_config.json on cluster if necessary.')
+                logging.error('Problem related to Atlas Production server. Please check if confidentials are up-to-date.\nRemember to update it in db_config.json on cluster if necessary.')
                 raise
             except:
                 print('Attempt {} FAILED'.format(n + 1))
@@ -87,10 +94,10 @@ class tracker_build:
 
     def get_atlas_species(self, supported_species):
         """
-        Supported species taken from list fo files in git hub here https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs
+        Supported species taken from list fo files in github here https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs
         For each git directory find the api url and pass to this function e.g. https://api.github.com/repos/ebi-gene-expression-group/atlas-annotations/git/trees/763aa3ef034348daa0e189d0c52c17edc9a97afc
         Pass as many dir as you need with -q arg.
-        These directories contain files who's name are the species we support.
+        These directories contain files whose name are the species we support.
         This function just returns file names as a list.
         These are the species names that Atlas supports.
         """
@@ -107,7 +114,7 @@ class tracker_build:
 
     def get_species_status(self):
         """
-        Assigns status to organisms based on supoort in Atlas and presence in ENSEMBLE (latter feature in dev)
+        Assigns status to organisms based on support in Atlas and presence in ENSEMBLE (latter feature in dev)
         """
         species_status = defaultdict(str)
         for accession, organism in self.file_metadata.extracted_metadata.get('Organism').items():
@@ -259,7 +266,7 @@ class tracker_build:
 
         return output_dfs
 
-    def auto_config(df):
+    def auto_config(self, df):
         df["AutoConfig Location"] = ""
 
         # bacterial studies are not ingested into Altas anymore, so not create auto configs for them.
@@ -267,6 +274,7 @@ class tracker_build:
         # todo: can implement a programmatic way
         fungi_list = ['Aspergillus fumigatus', 'Aspergillus nidulans', 'Saccharomyces cerevisiae',
                       'Schizosaccharomyces pombe', 'Yarrowia lipolytica']
+        logging.info("Exclude fungi studies from auto config creation")
 
         for i, row in df.iterrows():
             if row["Atlas Eligibility"] == "PASS" \

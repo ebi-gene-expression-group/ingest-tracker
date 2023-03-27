@@ -15,6 +15,7 @@ __license__ = "Apache 2.0"
 __date__ = "24/07/2019"
 
 import argparse
+import logging
 from app.lib import trackerBuild
 
 def parameters():
@@ -34,7 +35,16 @@ def parameters():
     parser.add_argument("-q" "--atlas_supported_species", dest='atlas_supported_species', nargs='+',
                         help='Species list. Which genome references are being processed by irap_single_lib',
                         required=True)
-    return parser.parse_args()
+    parser.add_argument('--debug', '-b', action='store_true', help='Turn on debug mode')
+
+    args = parser.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.ERROR)
+
+    return args
 
 
 if __name__ == '__main__':
