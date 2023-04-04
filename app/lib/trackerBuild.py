@@ -71,6 +71,8 @@ class tracker_build:
                 logging.info("Compile the output into a dataframe")
 
                 # automatically generate Expression Atlas config files for atlas-eligible bulk RNA-seq studies
+                logging.debug('discover_exp dataframe head:\n {}'.format(output_dfs["Discover Experiments"].head()))
+                break
                 #output_dfs["Discover Experiments"] = self.auto_config(df=output_dfs["Discover Experiments"])
                 #logging.info("Auto create config for bulk atlas RNA-seq exps")
 
