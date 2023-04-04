@@ -71,8 +71,8 @@ class tracker_build:
                 logging.info("Compile the output into a dataframe")
 
                 # automatically generate Expression Atlas config files for atlas-eligible bulk RNA-seq studies
-                output_dfs["Discover Experiments"] = self.auto_config(df=output_dfs["Discover Experiments"])
-                logging.info("Auto create config for bulk atlas RNA-seq exps")
+                #output_dfs["Discover Experiments"] = self.auto_config(df=output_dfs["Discover Experiments"])
+                #logging.info("Auto create config for bulk atlas RNA-seq exps")
 
                 # exported to dev - https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
                 google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
