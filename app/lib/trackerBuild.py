@@ -92,7 +92,8 @@ class tracker_build:
                     raise RuntimeError('Hit {} max retries. See errors above'.format(tries))
                 continue
 
-    def get_atlas_species(self, supported_species):
+    @staticmethod
+    def get_atlas_species(supported_species):
         """
         Supported species taken from list fo files in github here https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs
         For each git directory find the api url and pass to this function e.g. https://api.github.com/repos/ebi-gene-expression-group/atlas-annotations/git/trees/763aa3ef034348daa0e189d0c52c17edc9a97afc
@@ -124,7 +125,8 @@ class tracker_build:
                 species_status[accession] = 'Not supported'
         return species_status
 
-    def get_already_ingested_warn(self, in_df, ex_df):
+    @staticmethod
+    def get_already_ingested_warn(in_df, ex_df):
         """
         This code flags the following three conditions:
         1. Check if any secondary accessions in the internal sheet are in the secondary accessions external sheet
@@ -172,7 +174,8 @@ class tracker_build:
         ex_df['Already Ingested'] = pd.Series(already_ingested_warning)
         return ex_df
 
-    def formatting(self, col):
+    @staticmethod
+    def formatting(col):
         """
         Rules for each cell in dataframe applied afterwards
         This is slightly slower than pre deciding but allows formatting to be applied generally.
@@ -266,7 +269,8 @@ class tracker_build:
 
         return output_dfs
 
-    def auto_config(self, df):
+    @staticmethod
+    def auto_config(df):
         df["AutoConfig Location"] = ""
 
         # bacterial studies are not ingested into Altas anymore, so not create auto configs for them.
@@ -281,8 +285,13 @@ class tracker_build:
                     and (row["Organism Status"] == "Supported in Atlas" and row["Organism"] not in fungi_list) \
                     and ("E-MTAB" in row["Accession"] or "E-GEOD" in row["Accession"]) \
                     and ("seq" in row["Analysis Type"] and "RNA" in row["Analysis Type"] and "single" not in row["Analysis Type"]):
-                exp = df.loc[i, "Accession"]
+                exp = row["Accession"]
                 exp_path = "/nfs/production/irene/ma/atlas-prod/conan_incoming/" + exp
+                logging.debug('%s is qualified to generate configs automatically', exp)
+
+                if os.path.exists(exp_path) and len(os.listdir(exp_path)) == 0:
+                    os.remove(path)
+                    logging.debug('delete %s\'s empty folder in conan_incoming and continue', exp)
 
                 # if exp folder not existed in conan_incoming, create the folder and generate config files
                 if not os.path.exists(exp_path):
@@ -292,13 +301,16 @@ class tracker_build:
                     exitcode = os.system(
                         'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t differential -p ' + (
                             "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
-
                     if exitcode != 0:  # baseline
                         os.system(
                             'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t baseline -p ' + (
                                 "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
+                        logging.debug("%s baseline auto config created", exp)
+                    else:
+                        logging.debug("%s differential auto config created", exp)
 
-                    df.at[i, "AutoConfig Location"] = exp_path
+                    df.loc[i, "AutoConfig Location"] = exp_path
+                    logging.debug("add path to %s auto config in output table", exp)
 
         return df
 

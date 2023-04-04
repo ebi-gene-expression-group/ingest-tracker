@@ -1,4 +1,4 @@
-'''
+"""
 Use following params for DEV run
 -n
 "DEV Ingest Status"
@@ -8,7 +8,7 @@ Use following params for DEV run
 /app/etc/db_config.json
 -g
 /app/etc/client_secret.json
-'''
+"""
 
 __author__ = "hewgreen"
 __license__ = "Apache 2.0"
@@ -17,6 +17,7 @@ __date__ = "24/07/2019"
 import argparse
 import logging
 from app.lib import trackerBuild
+
 
 def parameters():
     parser = argparse.ArgumentParser(description='Load an external dataset into Atlas.')
@@ -35,11 +36,11 @@ def parameters():
     parser.add_argument("-q" "--atlas_supported_species", dest='atlas_supported_species', nargs='+',
                         help='Species list. Which genome references are being processed by irap_single_lib',
                         required=True)
-    parser.add_argument('--debug', '-b', action='store_true', help='Turn on debug mode')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Turn on verbose mode for debugging')
 
     args = parser.parse_args()
 
-    if args.debug:
+    if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.ERROR)
@@ -48,6 +49,6 @@ def parameters():
 
 
 if __name__ == '__main__':
-
     args = parameters()
-    trackerBuild.tracker_build(args.sources_config, args.db_config, args.atlas_supported_species, args.sheetname, args.google_client_secret)
+    trackerBuild.tracker_build(args.sources_config, args.db_config, args.atlas_supported_species, args.sheetname,
+                               args.google_client_secret)
