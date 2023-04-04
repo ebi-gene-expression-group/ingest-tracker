@@ -69,12 +69,18 @@ class tracker_build:
                 # output
                 output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
                 logging.info("Compile the output into a dataframe")
+                if logging.getLogger().getEffectiveLevel() == 10:
+                    with open(sources_config) as f:
+                        sources_config_json = json.load(f)
+                    conan_incoming = [x for x, y in sources_config_json.items() if "conan_incoming" in x][0]
+                    output_dfs["Discover Experiments"].to_csv(conan_incoming + '/disc_exps.txt', sep="\t", header=True, index=False)
+                    logging.debug("Save Discover Experiments dataframe in conan_incoming for debugging")
+                    break
 
                 # automatically generate Expression Atlas config files for atlas-eligible bulk RNA-seq studies
                 logging.debug('discover_exp dataframe head:\n {}'.format(output_dfs["Discover Experiments"].head()))
-                break
-                #output_dfs["Discover Experiments"] = self.auto_config(df=output_dfs["Discover Experiments"])
-                #logging.info("Auto create config for bulk atlas RNA-seq exps")
+                output_dfs["Discover Experiments"] = self.auto_config(sources_config, df=output_dfs["Discover Experiments"])
+                logging.info("Auto create config for bulk atlas RNA-seq exps")
 
                 # exported to dev - https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
                 google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
@@ -272,7 +278,7 @@ class tracker_build:
         return output_dfs
 
     @staticmethod
-    def auto_config(df):
+    def auto_config(sources_config, df):
         df["AutoConfig Location"] = ""
 
         # bacterial studies are not ingested into Altas anymore, so not create auto configs for them.
@@ -282,13 +288,21 @@ class tracker_build:
                       'Schizosaccharomyces pombe', 'Yarrowia lipolytica']
         logging.info("Exclude fungi studies from auto config creation")
 
+        # get path to conan_incoming from sources_config, in which should have one conan_incoming folder only
+        with open(sources_config) as f:
+            sources_config_json = json.load(f)
+        conan_incoming = [x for x, y in sources_config_json.items() if "conan_incoming" in x][0]
+        logging.info("get conan_incoming path from sources_config")
+
         for i, row in df.iterrows():
+            logging.debug("check row %s", i)
+
             if row["Atlas Eligibility"] == "PASS" \
                     and (row["Organism Status"] == "Supported in Atlas" and row["Organism"] not in fungi_list) \
                     and ("E-MTAB" in row["Accession"] or "E-GEOD" in row["Accession"]) \
                     and ("seq" in row["Analysis Type"] and "RNA" in row["Analysis Type"] and "single" not in row["Analysis Type"]):
                 exp = row["Accession"]
-                exp_path = "/nfs/production/irene/ma/atlas-prod/conan_incoming/" + exp
+                exp_path = conan_incoming + exp
                 logging.debug('%s is qualified to generate configs automatically', exp)
 
                 if os.path.exists(exp_path) and len(os.listdir(exp_path)) == 0:
