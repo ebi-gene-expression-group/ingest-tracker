@@ -91,7 +91,7 @@ class db_crawler:
 
     def get_accession_urls(self):
         """
-        returns clickthrough url for accession if the accession is published at www or wwwdev
+        returns click-through url for accession if the accession is published at www or wwwdev
         """
         db = self.db_connect('gxpatlaspro')
         logging.debug("bulk atlasprod connected")
@@ -103,7 +103,7 @@ class db_crawler:
         logging.debug("single-cell atlasprod connected")
         sc_access = self.get_columns(db, 'experiment', ['accession', 'private', 'access_key'])
         sc_access['bulk/sc'] = 'sc'
-        logging.info("query to bulk atlasprod for urls")
+        logging.info("query to single-cell atlasprod for urls")
 
         url_map_data = pd.concat([bulk_access, sc_access])  # data needed to construct url
 
