@@ -286,39 +286,52 @@ class tracker_build:
         with open(sources_config) as f:
             sources_config_json = json.load(f)
         conan_incoming = [x for x, y in sources_config_json.items() if "conan_incoming" in x][0]
-        logging.info("get conan_incoming path %s from sources_config", conan_incoming)
+        logging.debug("get conan_incoming path %s from sources_config", conan_incoming)
 
-        for i, row in df.iterrows():
-            logging.debug("check %s", i)  # i is the accession, eg: E-MTAB-12730
+        for exp, row in df.iterrows():
+            logging.debug("check %s", exp)  # exp is the accession, eg: E-MTAB-12730
 
-            if row["Atlas Eligibility"] == "PASS" \
+            # make sure all the checking field are checkable
+            if any(row[f] is np.nan for f in ["Atlas Eligibility", "Organism Status", "Organism", "Analysis Type"]):
+                logging.debug('at least one checking field is empty for %s, skip and next one', exp)
+                continue
+            # try to generate config files for qualified experiments
+            elif row["Atlas Eligibility"] == "PASS" \
                     and (row["Organism Status"] == "Supported in Atlas" and row["Organism"] not in fungi_list) \
                     and ("E-MTAB" in i or "E-GEOD" in i) \
                     and ("seq" in row["Analysis Type"] and "RNA" in row["Analysis Type"] and "single" not in row["Analysis Type"]):
-                exp = i
                 exp_path = conan_incoming + '/' + exp
                 logging.debug('%s is qualified to generate configs automatically', exp)
 
-                # remove empty exp folder if it exists in conan_incoming
-                if os.path.exists(exp_path) and len(os.listdir(exp_path)) == 0:
-                    os.remove(path)
-                    logging.debug('delete %s\'s empty folder in conan_incoming and continue', exp)
+                # check exp folder and config.auto exist or not
+                if os.path.exists(exp_path):
+                    # remove empty exp folder if it exists in conan_incoming
+                    if len(os.listdir(exp_path)) == 0:
+                        os.remove(exp_path)
+                        logging.debug('delete %s\'s empty folder in conan_incoming for auto generation', exp)
+                    # skip, if config.auto has been created
+                    else:
+                        logging.debug('%s has config.auto created', exp)
+                        continue
 
                 # if exp folder not existed in conan_incoming, create the folder and generate config files
                 if not os.path.exists(exp_path):
                     os.makedirs(exp_path)
 
                     # first try differential by default
-                    exitcode = os.system(
+                    exitcode_d = os.system(
                         'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t differential -p ' + (
                             "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
-                    if exitcode != 0:  # baseline
-                        os.system(
+
+                    if exitcode_d == 0:
+                        logging.info("%s differential auto config created", exp)
+                    else:  # try with baseline
+                        exitcode_b = os.system(
                             'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t baseline -p ' + (
                                 "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
-                        logging.debug("%s baseline auto config created", exp)
-                    else:
-                        logging.debug("%s differential auto config created", exp)
+
+                        assert exitcode_b == 0, f"{exp} failed both differential and baseline config generation"
+                        logging.info("%s baseline auto config created", exp)
 
                     df.loc[i, "AutoConfig Location"] = exp_path
                     logging.debug("add path to %s auto config in output table", exp)
