@@ -313,7 +313,7 @@ class tracker_build:
                     # skip, if config.auto has been created
                     else:
                         logging.debug('%s has config file created', exp)
-                        df.loc[i, "AutoConfig Location"] = exp_path
+                        df.loc[exp, "AutoConfig Location"] = exp_path
                         continue
 
                 # if exp folder not existed in conan_incoming, create the folder and generate config files
@@ -326,14 +326,14 @@ class tracker_build:
                             "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
                     if exitcode_d == 0:
                         logging.info("%s differential auto config created", exp)
-                        df.loc[i, "AutoConfig Location"] = exp_path
+                        df.loc[exp, "AutoConfig Location"] = exp_path
                     else:  # try with baseline
                         exitcode_b = os.system(
                             'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t baseline -p ' + (
                                 "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
                         if exitcode_b == 0:
                             logging.info("%s baseline auto config created", exp)
-                            df.loc[i, "AutoConfig Location"] = exp_path
+                            df.loc[exp, "AutoConfig Location"] = exp_path
                         else:
                             logging.info('%s failed both differential and baseline config generation', exp)
                             shutil.rmtree(exp_path)
