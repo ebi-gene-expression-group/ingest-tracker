@@ -295,7 +295,7 @@ class tracker_build:
 
             # make sure all the checking field are checkable
             if any(row[f] is np.nan for f in ["Atlas Eligibility", "Organism Status", "Organism", "Analysis Type"]):
-                logging.debug('at least one checking field is empty for %s, skip and next one', exp)
+                logging.debug('%s has one or more empty checking field, skip and next one', exp)
                 continue
             # try to generate config files for qualified experiments
             elif ("E-MTAB" in exp or "E-GEOD" in exp) and row["Atlas Eligibility"] == "PASS" \
@@ -304,6 +304,15 @@ class tracker_build:
 
                 logging.debug('%s is qualified to generate configs automatically', exp)
                 exp_path = conan_incoming + '/' + exp
+
+                # double check exp has not been ingested under different accession(s)
+                if row["Already Ingested"] is not np.nan:
+                    logging.debug('%s has been ingested under different accession(s)')
+                    # no exp folder should exist in conan_incoming
+                    if os.path.exists(exp_path):
+                        shutil.rmtree(exp_path)
+                        logging.debug('delete %s\'s folder in conan_incoming', exp)
+                    continue
 
                 # check exp folder and config.auto exist or not
                 if os.path.exists(exp_path):
