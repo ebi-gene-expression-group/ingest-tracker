@@ -33,6 +33,7 @@ import numpy as np
 import time
 import psycopg
 import logging
+import shutil
 
 
 class tracker_build:
@@ -337,6 +338,7 @@ class tracker_build:
                         else:
                             logging.info('%s failed both differential and baseline config generation', exp)
                             shutil.rmtree(exp_path)
+                            logging.debug('delete %s\'s folder in conan_incoming', exp)
 
         return df
 
