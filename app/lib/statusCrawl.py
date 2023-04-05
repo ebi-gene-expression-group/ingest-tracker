@@ -86,8 +86,8 @@ class atlas_status:
             datetime.fromtimestamp(datetime.now().timestamp()).isoformat()))
         all_primary_accessions = set()
         found_accessions = {}
-        counter = 0
-        counter += 1
+        counter = 1
+
         for path, info in self.sources_config.items():
             if path.startswith('https://'): # web path handling
                 resp = requests.get(url=path)
@@ -97,7 +97,6 @@ class atlas_status:
                     accession = experiment.get('experimentAccession')
                     accession_match(accession, info, path, all_primary_accessions, found_accessions)
                     # todo pass loadDate or lastUpdate date from web to tracker
-
             else: # nfs dir handling
                 print('Searching path {} {}/{}'.format(path, counter, len(self.sources_config)))
 
@@ -106,8 +105,10 @@ class atlas_status:
                     if not pre_accession.endswith('.merged.idf.txt'):
                         accession = pre_accession.strip('.idf.txt')
                         accession_match(accession, info, path, all_primary_accessions, found_accessions)
+                counter += 1
 
             print('Found {} accessions in {} directories'.format(len(found_accessions), len(self.sources_config)))
+
         return all_primary_accessions, found_accessions
 
     def status_tracker(self):

@@ -69,18 +69,11 @@ class tracker_build:
                 # output
                 output_dfs = self.df_compiler()  # this function should be edited to change the information exported to the google sheets output
                 logging.info("Compile the output into a dataframe")
-                if logging.getLogger().getEffectiveLevel() == 10:
-                    with open(sources_config) as f:
-                        sources_config_json = json.load(f)
-                    conan_incoming = [x for x, y in sources_config_json.items() if "conan_incoming" in x][0]
-                    output_dfs["Discover Experiments"].to_csv(conan_incoming + '/disc_exps.txt', sep="\t", header=True, index=False)
-                    logging.debug("Save Discover Experiments dataframe in conan_incoming for debugging")
-                    break
 
                 # automatically generate Expression Atlas config files for atlas-eligible bulk RNA-seq studies
                 logging.debug('discover_exp dataframe head:\n {}'.format(output_dfs["Discover Experiments"].head()))
                 output_dfs["Discover Experiments"] = self.auto_config(sources_config, df=output_dfs["Discover Experiments"])
-                logging.info("Auto create config for bulk atlas RNA-seq exps")
+                logging.info("Create config.auto for bulk atlas RNA-seq exps")
 
                 # exported to dev - https://docs.google.com/spreadsheets/d/13gxKodyl-zJTeyCxXtxdw_rp60WJHMcHLtZhxhg5opo/edit#gid=0
                 google_sheet_output(google_client_secret, output_dfs, self.spreadsheetname)
@@ -282,7 +275,8 @@ class tracker_build:
         df["AutoConfig Location"] = ""
 
         # bacterial studies are not ingested into Altas anymore, so not create auto configs for them.
-        # currently simply exclude bacteria in atlas-eligible species list at: https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs/ensembl
+        # currently simply exclude bacteria in atlas-eligible species list at:
+        # https://github.com/ebi-gene-expression-group/atlas-annotations/tree/develop/annsrcs/ensembl
         # todo: can implement a programmatic way
         fungi_list = ['Aspergillus fumigatus', 'Aspergillus nidulans', 'Saccharomyces cerevisiae',
                       'Schizosaccharomyces pombe', 'Yarrowia lipolytica']
@@ -292,19 +286,20 @@ class tracker_build:
         with open(sources_config) as f:
             sources_config_json = json.load(f)
         conan_incoming = [x for x, y in sources_config_json.items() if "conan_incoming" in x][0]
-        logging.info("get conan_incoming path from sources_config")
+        logging.info("get conan_incoming path %s from sources_config", conan_incoming)
 
         for i, row in df.iterrows():
-            logging.debug("check row %s", i)
+            logging.debug("check %s", i)  # i is the accession, eg: E-MTAB-12730
 
             if row["Atlas Eligibility"] == "PASS" \
                     and (row["Organism Status"] == "Supported in Atlas" and row["Organism"] not in fungi_list) \
-                    and ("E-MTAB" in row["Accession"] or "E-GEOD" in row["Accession"]) \
+                    and ("E-MTAB" in i or "E-GEOD" in i) \
                     and ("seq" in row["Analysis Type"] and "RNA" in row["Analysis Type"] and "single" not in row["Analysis Type"]):
-                exp = row["Accession"]
+                exp = i
                 exp_path = conan_incoming + exp
                 logging.debug('%s is qualified to generate configs automatically', exp)
 
+                # remove empty exp folder if it exists in conan_incoming
                 if os.path.exists(exp_path) and len(os.listdir(exp_path)) == 0:
                     os.remove(path)
                     logging.debug('delete %s\'s empty folder in conan_incoming and continue', exp)
@@ -313,7 +308,7 @@ class tracker_build:
                 if not os.path.exists(exp_path):
                     os.makedirs(exp_path)
 
-                    # try differential by default
+                    # first try differential by default
                     exitcode = os.system(
                         'conda run -n curation gxa_generateConfigurationForExperiment.pl -e ' + exp + ' -t differential -p ' + (
                             "annotare" if "MTAB" in exp else "geo") + ' -o ' + exp)
