@@ -296,7 +296,7 @@ class tracker_build:
                     and ("E-MTAB" in i or "E-GEOD" in i) \
                     and ("seq" in row["Analysis Type"] and "RNA" in row["Analysis Type"] and "single" not in row["Analysis Type"]):
                 exp = i
-                exp_path = conan_incoming + exp
+                exp_path = conan_incoming + '/' + exp
                 logging.debug('%s is qualified to generate configs automatically', exp)
 
                 # remove empty exp folder if it exists in conan_incoming
