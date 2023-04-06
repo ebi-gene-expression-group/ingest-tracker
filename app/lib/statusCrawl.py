@@ -99,7 +99,7 @@ class atlas_status:
         for path, info in self.sources_config.items():
             counter += 1
             if path.startswith('https://'): # web path handling
-                print('query url {} {}/{}'.format(path, counter, len(sources_config)))
+                print('query url {} {}/{}'.format(path, counter, len(self.sources_config)))
                 resp = requests.get(url=path)
                 # check the status_code of the query, in case atlas server is down, eg: HTTPError: 500
                 assert resp.ok, resp.raise_for_status()
