@@ -91,7 +91,12 @@ class atlas_status:
         for path, info in self.sources_config.items():
             counter += 1
             if path.startswith('https://'): # web path handling
+                print('query url {} {}/{}'.format(path, counter, len(sources_config)))
                 resp = requests.get(url=path)
+                # check the status_code of the query, in case atlas server is down
+                if not resp.ok:
+                    resp.raise_for_status()
+
                 # data = resp.json().get('aaData')
                 data = resp.json().get('experiments')
                 for experiment in data:

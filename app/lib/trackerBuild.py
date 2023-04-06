@@ -84,6 +84,9 @@ class tracker_build:
                 break
             except (KeyboardInterrupt, SystemExit):
                 sys.exit()
+            except requests.exceptions.HTTPError:
+                logging.error("A server is down (which one see server error message). Please try again when the affected server has been restarted.")
+                raise
             except psycopg.OperationalError:
                 logging.error('Problem related to Atlas Production server. Please check if confidentials are up-to-date.\nRemember to update it in db_config.json on cluster if necessary.')
                 raise
