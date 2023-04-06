@@ -35,16 +35,24 @@ class atlas_status:
         print('Initialised {}'.format(self.timestamp))
 
         # accession search
-        accession_search = self.accession_search() # scans dir in config to find '*.idf.txt' or accession directories
+        # scans dir in config to find '*.idf.txt' or accession directories
+        try:
+            accession_search = self.accession_search() # in case server is down occasionally
+        except requests.exceptions.HTTPError:
+            raise
         self.all_primary_accessions = accession_search[0]
         self.found_accessions = accession_search[1]
-        self.accession_final_status = self.status_tracker() # determines status of each dataset based on location of files
 
-        get_min_max_status = self.get_min_max_status() # sets two variables with min and max status based on status_type_order
+        # determines status of each dataset based on location of files
+        self.accession_final_status = self.status_tracker()
+
+        # sets two variables with min and max status based on status_type_order
+        get_min_max_status = self.get_min_max_status()
         self.accession_min_status = get_min_max_status[0]
         self.accession_max_status = get_min_max_status[1]
 
-        latest_idf_sdrf = self.get_latest_idf_sdrf()  # finds path to latest idf and sdrf file
+        # finds path to latest idf and sdrf file
+        latest_idf_sdrf = self.get_latest_idf_sdrf()
         self.idf_path_by_accession = latest_idf_sdrf[0]
         self.sdrf_path_by_accession = latest_idf_sdrf[1]
         self.path_by_accession = latest_idf_sdrf[2]
@@ -93,9 +101,8 @@ class atlas_status:
             if path.startswith('https://'): # web path handling
                 print('query url {} {}/{}'.format(path, counter, len(sources_config)))
                 resp = requests.get(url=path)
-                # check the status_code of the query, in case atlas server is down
-                if not resp.ok:
-                    resp.raise_for_status()
+                # check the status_code of the query, in case atlas server is down, eg: HTTPError: 500
+                assert resp.ok, resp.raise_for_status()
 
                 # data = resp.json().get('aaData')
                 data = resp.json().get('experiments')
